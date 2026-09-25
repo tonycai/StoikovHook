@@ -24,6 +24,7 @@ contract BaseScript is Script, Deployers {
     /////////////////////////////////////
     IERC20 internal constant token0 = IERC20(0x0165878A594ca255338adfa4d48449f69242Eb8F);
     IERC20 internal constant token1 = IERC20(0xa513E6E4b8f2a923D98304ec87F64353C4D5C853);
+    // StoikovHook address printed by script/00_DeployHook.s.sol. Scripts 01-03 refuse to run while it is unset.
     IHooks constant hookContract = IHooks(address(0));
     /////////////////////////////////////
 
@@ -55,6 +56,10 @@ contract BaseScript is Script, Deployers {
         } else {
             revert("Unsupported etch on this network");
         }
+    }
+
+    function requireHookContract() internal pure {
+        require(address(hookContract) != address(0), "BaseScript: set hookContract to the deployed StoikovHook");
     }
 
     function getCurrencies() internal pure returns (Currency, Currency) {

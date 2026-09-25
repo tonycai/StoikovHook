@@ -16,6 +16,12 @@ Developer-experience notes on the Uniswap v4 toolchain, collected while building
 - **v4-template: CI depends on an undefined profile.** `.github/workflows/test.yml` sets `FOUNDRY_PROFILE: ci`, but `foundry.toml` has no `[profile.ci]`. That is harmless today, but it makes CI's compiler configuration depend on an environment variable. For hooks this is a footgun, because the CREATE2-mined address depends on the exact bytecode, so any drift between CI and local builds changes the address.
   *Suggestion:* either add an explicit `[profile.ci]` that inherits the default compiler settings, or drop the env var.
 
+- **`forge test` prints a false "file not found" error for OpenZeppelin uniswap-hooks.** OZ `BaseOverrideFee.sol` imports its base contract lib-root-relative: `import {BaseHook} from "src/base/BaseHook.sol";` (`lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:6`). In a project generated from v4-template that inherits `BaseOverrideFee`, every `forge test` run prints `error: file src/base/BaseHook.sol not found`, pointing at that line.
+  *Reproduction:* forge 1.5.0-stable (`1c57854`), uniswap-hooks v1.1.0 (`e59fe72`), template remappings unchanged. Add a contract that inherits `@openzeppelin/uniswap-hooks/src/fee/BaseOverrideFee.sol` and run `forge test`.
+  *Impact:* cosmetic, but alarming. `forge build` is clean, and every test passes (12/12 in this repo). The hook's creation bytecode is byte-for-byte identical with and without our remapping attempt (sha256 prefix `fdbe360a64fcfd8e`).
+  *What we tried:* adding the context remapping `lib/uniswap-hooks/:src/=lib/uniswap-hooks/src/` to `remappings.txt`. It had no effect on the message, so we reverted it. (While trying, we also found that `remappings.txt` rejects comment lines with "invalid remapping format".) We are leaving the message as is.
+  *Suggestion:* use package-relative imports inside uniswap-hooks (e.g. `../base/BaseHook.sol`), or have the component that emits this message resolve imports the same way the compiler pipeline does.
+
 ## Documentation Gaps
 
 - **Dynamic-fee pools start with `lpFee = 0`.** `getInitialLPFee` returns 0 for dynamic-fee pools (`v4-core/src/libraries/LPFeeLibrary.sol:51-54`). The only guidance we found is the source comment recommending `updateDynamicLPFee` in `afterInitialize` (`LPFeeLibrary.sol:48`). For hooks that only use the per-swap override, the stored fee is never read, so if any code path forgot to set `OVERRIDE_FEE_FLAG`, that swap would be charged **0**. Tools that display `slot0.lpFee` also show 0 for these pools.
@@ -26,6 +32,9 @@ Developer-experience notes on the Uniswap v4 toolchain, collected while building
 - **v4-template: broadcast logs for real networks are committed by default.** The `.gitignore` whitelists `/broadcast` (`!/broadcast`) and ignores only `/broadcast/*/31337/`, `/broadcast/*/5/` and `dry-run/`. Chain 5 is the deprecated Goerli testnet. Broadcast logs from Sepolia (11155111) or mainnet are therefore committed unless the developer notices. These logs contain deployer addresses and full transaction data, which is surprising in a public repo created from the template.
   *Suggestion:* ignore `broadcast/` entirely, or at least update the chain IDs.
 
+- **v4-template: `03_Swap.s.sol` sends swap output to an unreachable address.** The swap sets `receiver: address(this)`. In a broadcast `forge script`, `address(this)` is the script contract's address, which has no code on the target chain and no key holder. On a live network the output tokens would be unrecoverable.
+  *Suggestion:* send the output to the broadcasting account, e.g. `deployerAddress` from `BaseScript` (the fix we applied), or `msg.sender`.
+
 ## Suggestions
 
-- The fixes proposed above, in priority order: (1) broadcast ignore rule, (2) `docs/` ignore rule, (3) dynamic-fee `lpFee = 0` documentation, (4) CI profile.
+- The fixes proposed above, in priority order: (1) broadcast ignore rule, (2) `03_Swap.s.sol` swap receiver, (3) `docs/` ignore rule, (4) dynamic-fee `lpFee = 0` documentation, (5) the false "file not found" diagnostic, (6) CI profile.

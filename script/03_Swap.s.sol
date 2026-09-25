@@ -2,15 +2,18 @@
 pragma solidity ^0.8.26;
 
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {LPFeeLibrary} from "@uniswap/v4-core/src/libraries/LPFeeLibrary.sol";
 
 import {BaseScript} from "./base/BaseScript.sol";
 
 contract SwapScript is BaseScript {
     function run() external {
+        requireHookContract();
+
         PoolKey memory poolKey = PoolKey({
             currency0: currency0,
             currency1: currency1,
-            fee: 3000,
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG, // StoikovHook sets the fee on every swap
             tickSpacing: 60,
             hooks: hookContract // This must match the pool
         });
@@ -29,7 +32,8 @@ contract SwapScript is BaseScript {
             zeroForOne: true,
             poolKey: poolKey,
             hookData: hookData,
-            receiver: address(this),
+            // Not address(this): in a broadcast that is the script contract's address, which holds no code or key.
+            receiver: deployerAddress,
             deadline: block.timestamp + 30
         });
 

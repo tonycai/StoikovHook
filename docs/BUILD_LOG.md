@@ -285,3 +285,30 @@ To keep the "reviewed diff by diff before it is merged" statement true, the hook
 **Next**: Commit the reviewed hook skeleton, including removing the Counter example and pointing scripts 01–03 at the StoikovHook pool.
 
 ---
+
+## [2026-09-25 22:04 JST] Hook skeleton with per-swap fee override
+
+**Goal**: Build the minimal hook skeleton from the approved spec: `afterInitialize` + `beforeSwap` permissions (flags `0x1080`), `afterInitialize` setting the stored fee to f0, and `beforeSwap` returning a fixed fee with `OVERRIDE_FEE_FLAG`. A test must prove the pool charges the hook's fee rather than its stored fee. Also, as approved, remove the Counter example and point scripts 01–03 at the StoikovHook pool.
+
+**Result**:
+- `src/StoikovHook.sol` extends OpenZeppelin `BaseOverrideFee`. `STOIKOV_HOOK_FLAGS` (L15) is the single flag constant shared by the hook, the tests and the deploy script. `_afterInitialize` (L40–L48) rejects static-fee pools and stores `BASE_FEE` = 500 (0.05%). `_getFee` (L52–L59) returns `PLACEHOLDER_FEE` = 3000 (0.30%).
+- `test/StoikovHook.t.sol` has 6 tests: flags vs. permissions vs. address bits; fallback fee stored; static-fee pool rejected (`WrappedError(NotDynamicFee)`); `Swap` event `fee` = 3000 in both directions while the stored fee stays 500; a fuzz test (1,000 runs) showing deltas identical to a hookless 0.30% pool and strictly lower output than a 0.05% pool; direct callback calls revert with `NotPoolManager`.
+- `forge test`: **12 passed / 0 failed** (6 StoikovHook + 6 EasyPosm; the 2 Counter tests were removed with the example).
+- Gas: `test_swap_chargesOverrideFeeInBothDirections` 216,367; fuzz μ 281,542. The hook adds **≈ 2,093 gas** per warm swap (42,707 vs. 40,614 for an identical hookless 0.30% pool, measured with a throwaway probe test).
+- Local deployment (anvil, `--unlocked`, no private key): hook at `0x76747994699d9690222a973320c373bf7f931080`, low 14 bits `0x1080`, salt `0x…77ac` (the 30,636th candidate), runtime code 3,867 bytes. Getters verified on-chain: `HOOK_FLAGS` = 4224 (`0x1080`), `BASE_FEE` = 500, `PLACEHOLDER_FEE` = 3000.
+- Scripts: `00_DeployHook` deploys StoikovHook, documents the `--gas-limit 100000000000 --disable-block-gas-limit` command and logs the address. `01`, `02` and `03` use `DYNAMIC_FEE_FLAG` with `hookContract` and refuse to run while it is unset. `02` was updated too, because it must target the same pool key as `01`. `03` now sends swap output to `deployerAddress`. Scripts 01–03 are compile-checked only; they will be run end to end with the Sepolia deployment.
+- Removed `src/Counter.sol` and `test/Counter.t.sol`.
+- README: a "Hook skeleton" row marked ✅ in Core Features, Repository Guide line numbers filled in, Getting Started updated (test count, local deploy command). FEEDBACK: 2 new entries.
+
+**Issues**:
+1. Tests and scripts could not read `StoikovHook.HOOK_FLAGS` through the contract type name (solc error 9582), and they need the flags before the hook exists.
+   Fix: a file-level constant `STOIKOV_HOOK_FLAGS` that all three import. The contract's public `HOOK_FLAGS` is derived from it.
+2. Every `forge test` run prints `error: file src/base/BaseHook.sol not found`, caused by the lib-root-relative import in `BaseOverrideFee.sol:6`. The build and all tests succeed, and the bytecode is unaffected. A context remapping did not help and was reverted. Left as is by Tony's decision and logged in FEEDBACK.md.
+3. The template's `03_Swap.s.sol` sent swap output to `address(this)`, which is unreachable in a broadcast. Fixed and logged in FEEDBACK.md.
+4. The test's placeholder fee (3000) must differ from the stored fee (500); otherwise the test could not tell the override apart from the fallback.
+5. Without the gas flags, the deployment simulation also succeeded for this bytecode. The flags stay in the documented command, because the salt position changes whenever the bytecode does.
+6. Review gate: the skeleton touches fee handling, hook permissions and the swap receiver, so it was held uncommitted until Tony approved the diff.
+
+**Next**: Core fee logic: σ_h, q̂, their combination with the clamp, and per-block caching.
+
+---

@@ -9,7 +9,7 @@
 > Built at ETHGlobal Tokyo 2026
 
 > [!NOTE]
-> **Project status: design phase.** The fee model is fully specified in [`specs/01-design.md`](specs/01-design.md) (draft, under review). The hook itself is not implemented yet.
+> **Project status: hook skeleton done, pricing model in progress.** The fee model is fully specified and approved in [`specs/01-design.md`](specs/01-design.md). The skeleton is implemented, tested and deployed on a local chain, and charges a fixed placeholder fee. The volatility and inventory pricing is not implemented yet.
 > Status legend: ✅ Done · 🚧 In progress · 📋 Planned. Anything not marked ✅ is **not** done.
 
 ## Problem
@@ -97,12 +97,13 @@ sequenceDiagram
 
 | Feature | Description | Status |
 |---|---|---|
-| Project scaffolding | Foundry project built on the v4 template, with compiler settings pinned so the CREATE2-mined hook address is reproducible. The 8 baseline template tests pass. | ✅ Done |
-| Dynamic fee computation | Each block has two fees, one for price-up swaps and one for price-down swaps, applied per swap through v4's `OVERRIDE_FEE_FLAG`. | 🚧 In progress (spec drafted, code not started) |
-| Inventory skew | Swaps that push the pool away from its recent equilibrium (an EMA of its own tick) pay more, and swaps that bring it back pay less. | 🚧 In progress (spec drafted, code not started) |
-| Volatility estimation | On-chain EWMA of realized volatility from the pool's own ticks, updated once per block, with no oracle. | 🚧 In progress (spec drafted, code not started) |
-| Fee bounds protection | Every fee is clamped to a floor and a cap (default 0.01%–1%), and the fee calculation is designed never to revert a swap. | 🚧 In progress (spec drafted, code not started) |
-| Per-block fee snapshot | Fees are fixed for the whole block, so trading back and forth within a block cannot lower your own fee. | 🚧 In progress (spec drafted, code not started) |
+| Project scaffolding | Foundry project built on the v4 template, with compiler settings pinned so the CREATE2-mined hook address is reproducible. | ✅ Done |
+| Hook skeleton | `afterInitialize` + `beforeSwap` permissions (address flags `0x1080`), a dynamic-fee guard, a stored fallback fee of 0.05%, and a per-swap fee override that currently charges a fixed 0.30% placeholder. | ✅ Done |
+| Dynamic fee computation | Each block has two fees, one for price-up swaps and one for price-down swaps, applied per swap through v4's `OVERRIDE_FEE_FLAG`. | 🚧 In progress (spec approved, code not started) |
+| Inventory skew | Swaps that push the pool away from its recent equilibrium (an EMA of its own tick) pay more, and swaps that bring it back pay less. | 🚧 In progress (spec approved, code not started) |
+| Volatility estimation | On-chain EWMA of realized volatility from the pool's own ticks, updated once per block, with no oracle. | 🚧 In progress (spec approved, code not started) |
+| Fee bounds protection | Every fee is clamped to a floor and a cap (default 0.01%–1%), and the fee calculation is designed never to revert a swap. | 🚧 In progress (spec approved, code not started) |
+| Per-block fee snapshot | Fees are fixed for the whole block, so trading back and forth within a block cannot lower your own fee. | 🚧 In progress (spec approved, code not started) |
 | Test suite | Unit, fuzz (≥ 1,000 runs) and gas-snapshot tests for the hook. | 📋 Planned |
 | Comparison simulation | A deterministic scenario that runs identical order flow through StoikovHook and through static-fee pools, including a fee-matched baseline, and reports LP value, fee income and arbitrage profit. | 📋 Planned |
 | Sepolia deployment | Hook deployed at a mined address with flags `0x1080`, source verified, and a demo pool with swaps in both directions. | 📋 Planned |
@@ -146,14 +147,15 @@ The math behind each step, and why it follows the Avellaneda–Stoikov model, is
 
 | What to verify | Location | Status |
 |---|---|---|
-| Hook permissions (`afterInitialize` + `beforeSwap`, address flags `0x1080`) | `src/StoikovHook.sol:L?` | 🚧 In progress |
-| Dynamic-fee guard and state seeding (`afterInitialize`) | `src/StoikovHook.sol:L?` | 🚧 In progress |
-| Per-swap fee override returned from `beforeSwap` | `src/StoikovHook.sol:L?` | 🚧 In progress |
+| Hook permissions (`afterInitialize` + `beforeSwap`, address flags `0x1080`) | `src/StoikovHook.sol:L15` — flag constant shared with the deploy script and tests; `lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:L75-L92` — inherited permission set | ✅ Done |
+| Dynamic-fee guard and stored fallback fee (`afterInitialize`) | `src/StoikovHook.sol:L40-L48` — rejects static-fee pools, stores 0.05% as the fallback LP fee | ✅ Done |
+| Per-swap fee override returned from `beforeSwap` | `src/StoikovHook.sol:L52-L59` — fee source (placeholder); `lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:L67` — adds `OVERRIDE_FEE_FLAG` | ✅ Done (fixed placeholder fee) |
 | Fee formula: volatility premium, inventory skew, clamps | `src/StoikovHook.sol:L?` | 🚧 In progress |
-| Estimator update at window open (EWMA volatility, EMA reference) | `src/StoikovHook.sol:L?` | 🚧 In progress |
-| Address mining and CREATE2 deployment | `script/…` | 🚧 In progress |
-| Unit, fuzz and scenario tests | `test/…` | 🚧 In progress |
-| Design specification | [`specs/01-design.md`](specs/01-design.md) | Draft, under review |
+| Estimator update at window open (EWMA volatility, EMA reference) and per-pool state seeding | `src/StoikovHook.sol:L?` | 🚧 In progress |
+| Address mining and CREATE2 deployment | `script/00_DeployHook.s.sol:L18-L31` — mines with the shared flag constant, deploys via CREATE2 | ✅ Done (local anvil); Sepolia 🚧 |
+| Skeleton tests | `test/StoikovHook.t.sol:L66-L157` — flags vs. permissions, fallback fee, static-fee rejection, override fee in both directions, 1,000-run fuzz against static pools, access control | ✅ Done |
+| Fee-model and scenario tests | `test/…` | 🚧 In progress |
+| Design specification | [`specs/01-design.md`](specs/01-design.md) | ✅ Approved |
 
 ## Getting Started
 
@@ -167,7 +169,9 @@ forge build
 forge test
 ```
 
-`forge test` currently runs the v4-template baseline suite (8 tests). StoikovHook's own tests are 🚧 in progress.
+`forge test` runs 12 tests: 6 for the StoikovHook skeleton, including a 1,000-run fuzz test, and 6 for the template's position-manager helpers. Tests for the pricing model are 🚧 in progress.
+
+Note: `forge test` also prints `error: file src/base/BaseHook.sol not found`. This is a known, harmless toolchain diagnostic; the build and every test succeed (see [`FEEDBACK.md`](FEEDBACK.md)).
 
 Local Sepolia fork, for the deployment flow:
 
@@ -177,7 +181,17 @@ Local Sepolia fork, for the deployment flow:
 anvil --fork-url "$SEPOLIA_RPC_URL" --block-time 1
 ```
 
-🚧 In progress: the deployment script (mine the hook address, deploy with CREATE2, create the pool, add liquidity, run the demo swaps). Keys will only be used through a Foundry keystore (`--account`).
+Deploy the hook to a local chain. anvil's accounts are unlocked, so no private key is needed:
+
+```bash
+anvil --block-time 1
+# in a second terminal
+forge script script/00_DeployHook.s.sol --rpc-url http://127.0.0.1:8545 \
+  --unlocked --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --broadcast \
+  --gas-limit 100000000000 --disable-block-gas-limit
+```
+
+🚧 In progress: the Sepolia deployment and the pool, liquidity and swap scripts (`01`–`03`) running end to end against it. Keys will only be used through a Foundry keystore (`--account`).
 
 ## Deployed Contracts
 

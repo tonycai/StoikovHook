@@ -6,6 +6,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {CurrencyLibrary, Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {LiquidityAmounts} from "@uniswap/v4-core/test/utils/LiquidityAmounts.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
+import {LPFeeLibrary} from "@uniswap/v4-core/src/libraries/LPFeeLibrary.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
 import {BaseScript} from "./base/BaseScript.sol";
@@ -19,7 +20,7 @@ contract AddLiquidityScript is BaseScript, LiquidityHelpers {
     // --- Configure These ---
     /////////////////////////////////////
 
-    uint24 lpFee = 3000; // 0.30%
+    uint24 lpFee = LPFeeLibrary.DYNAMIC_FEE_FLAG; // StoikovHook sets the fee on every swap
     int24 tickSpacing = 60;
 
     // --- liquidity position configuration --- //
@@ -32,6 +33,8 @@ contract AddLiquidityScript is BaseScript, LiquidityHelpers {
     int24 tickUpper;
 
     function run() external {
+        requireHookContract();
+
         PoolKey memory poolKey = PoolKey({
             currency0: currency0,
             currency1: currency1,
