@@ -77,3 +77,27 @@ ETHGlobal Tokyo 2026 — 从 2026-09-25 21:00 JST 开赛
 **下一步**：完成 `specs/01-design.md`；然后写 `CLAUDE.md` 和 README 骨架。
 
 ---
+
+## [2026-09-25 21:26 JST] 设计规格：动态费率模型
+
+**目标**：写出 `specs/01-design.md`，面向 Uniswap Foundation 工程师，定下费率公式、链上状态、回调、安全约束和 MVP 范围。不写实现代码。
+
+**结果**：
+- `specs/01-design.md`（373 行）共 7 节：问题陈述、费率模型、链上状态、回调与权限、安全约束、范围（MVP 5 项、验收标准 A1–A10、Stretch S1–S6）、待评审问题
+- 费率公式采用 GLFT（A–S 的 T→∞ 平稳解）结构：$f(s) = \mathrm{clamp}(f_0 + \sigma_h(\alpha + \beta s \hat q), f_{\min}, f_{\max})$，按方向分 $f_\uparrow$ / $f_\downarrow$
+- 输入只有池子自身的 `slot0.tick` 和 `block.timestamp`，不用预言机
+- 每个池子的状态打包进 1 个 slot（208 bit）；每个 timestamp 窗口只在第一笔 swap 时更新一次，后续 swap 读缓存
+- 回调：`afterInitialize` + `beforeSwap`，Hook 地址 flags = `0x1080`；费率通过 `OVERRIDE_FEE_FLAG` 按笔覆盖
+- 所有 v4 接口结论都附了 `file:line` 证据；数值例（费率表、波动冲击后回落时间、位宽上界）已用脚本复算
+
+**遇到的问题**：
+1. 动态费率池初始化后 `slot0.lpFee = 0`（`LPFeeLibrary.sol:51-54`）。如果 Hook 某次没有返回覆盖费率，swap 就是 0 手续费。
+   解法：规格要求在 `afterInitialize` 里调用 `updateDynamicLPFee(key, f0)` 作为兜底（库注释 `LPFeeLibrary.sol:48` 也推荐这么做）。这一条记作 v4 接口使用注意，之后整理进 FEEDBACK.md。
+2. 如果按每笔 swap 的即时状态算库存偏斜，在同一笔交易里先反向小额交易越过参考价，再做大额交易，就能拿到折扣费率。
+   解法：费率按 timestamp 窗口快照，同一窗口内固定。跨区块的残余风险写进 §5.4，由 S1 覆盖。
+3. EMA 参考价如果用整数 tick 存储，在 τ_R = 900 时，位移不到 901 tick 就一步都不会动（整数除法截断为 0）。
+   解法：规格要求用 16 位小数定点存储。
+
+**下一步**：Tony 评审规格（§7 有 5 个待定问题）；同时写 `CLAUDE.md` 和 README 骨架。
+
+---
