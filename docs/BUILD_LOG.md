@@ -312,3 +312,45 @@ To keep the "reviewed diff by diff before it is merged" statement true, the hook
 **Next**: Core fee logic: σ_h, q̂, their combination with the clamp, and per-block caching.
 
 ---
+
+## [2026-09-25 22:04 JST] End of day 1 (2026-09-25)
+
+**Goal**: Wrap up day 1: list what was done, record the current state, and set tomorrow's first priority and the environment to restore.
+
+**Result**: Tasks completed today, in order:
+1. `6aee28d` Bootstrap from v4-template: pinned compiler settings, fixed the template's `.gitignore` and CI profile, baseline tests passing.
+2. `793df02` Build log set up and backfilled.
+3. `7f27177` Design spec `specs/01-design.md` (fee model, state, callbacks, security, scope).
+4. `65d0425` `CLAUDE.md` and a 12-section README skeleton with 2 Mermaid diagrams.
+5. `ee57db0` Feature completion workflow in `CLAUDE.md`.
+6. `8af5950` Fee-matched static baseline added to the scenario spec.
+7. `fd4cdeb` README Goals / Non-Goals, `docs/DEMO_SCRIPT.md`, first FEEDBACK entries.
+8. `f5099db` GitHub description (93 characters) and 9 topics; README and spec rendering verified.
+9. `ab8234b` ETHGlobal Tokyo banner in the README.
+10. `469b64e` English-only language policy; 3 files translated.
+11. `92fe722` Spec approved; review decisions in §7; block-number windows with Δt floored at 1 s.
+12. `d5b0bcc` `.DS_Store` and `.env.dev` ignored; CREATE2 collision guidance corrected.
+13. `5df81dd` README Author section.
+14. `5512840` AI usage disclosure (README and `AI_USAGE.md`).
+15. `0742381` Author's decisions listed explicitly.
+16. `a5d3206` StoikovHook skeleton (reviewed diff), Counter example removed, scripts 01–03 pointed at the StoikovHook pool, 2 FEEDBACK entries.
+
+Current state:
+- `forge test`: **12 passed / 0 failed** (6 StoikovHook, including a 1,000-run fuzz test; 6 EasyPosm helper tests).
+- Hook address flags: `0x1080` (`afterInitialize` | `beforeSwap`), verified on a local anvil deployment at `0x76747994699d9690222a973320c373bf7f931080`. No Sepolia deployment yet.
+- Gas: the skeleton adds ≈ 2,093 gas per warm swap compared with an identical hookless pool. It currently charges a fixed 0.30% placeholder fee.
+
+**Issues**: None open. The known `forge test` diagnostic (`src/base/BaseHook.sol not found`) is harmless and logged in FEEDBACK.md.
+
+**Next**:
+- First priority tomorrow: the core fee logic from spec §2, replacing the placeholder:
+  - σ_h: EWMA tick-volatility estimate updated per block-number window, with Δt = max(now − tLast, 1).
+  - q̂: displacement of the window-open tick from its slow EMA reference, clamped to [−1, 1].
+  - f(direction) = clamp(f0 + σ_h × (α ± β·q̂), fmin, fmax).
+  - Computed once per block and cached in the single-slot state.
+  - OpenZeppelin `Math` for sqrt/mulDiv; no hand-written ln/exp (the spec needs none).
+  - A fuzz test that fees always stay within [fmin, fmax], and gas measured against today's ≈ 2,093 baseline.
+  - The fee logic diff goes to Tony for review before it is committed.
+- Environment to restore before starting: `forge install` if the clone is fresh, then an anvil Sepolia fork with `--block-time 1` (`anvil --fork-url "$SEPOLIA_RPC_URL" --block-time 1`, with the RPC URL coming from the local environment and never printed). Check that `forge test` is green before writing code.
+
+---
