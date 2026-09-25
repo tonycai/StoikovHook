@@ -7,6 +7,10 @@ broadcast/
 
 # Dotenv files (.env, .env.local, .env.sepolia, ...)
 .env*
+.env.dev
 
 # Node modules
 node_modules/
+
+# macOS
+.DS_Store

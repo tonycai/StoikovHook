@@ -47,7 +47,7 @@ Solidity (version pinned in `foundry.toml`), Foundry, Uniswap v4-core / v4-perip
 
 - **HookMiner runs out of gas while mining.** Run the deployment script with `--gas-limit 100000000000 --disable-block-gas-limit`.
 - **An idle anvil falls behind on timestamps, and swaps revert with `DeadlinePassed`.** Start anvil with `--block-time 1`.
-- **The CREATE2 candidate address is already taken.** Change `optimizer_runs` to change the bytecode.
+- **The CREATE2 candidate address is already taken.** `HookMiner.find` already skips addresses that have code and moves on to the next salt (`lib/uniswap-hooks/lib/v4-periphery/src/utils/HookMiner.sol:36`), so a collision alone is not a reason to act. Consider changing the bytecode only if mining still fails after all candidates are exhausted (`HookMiner.find` gives up after `MAX_LOOP = 160,444` salts, `HookMiner.sol:14`). After any bytecode change, re-mine the address and update the deployment script.
 
 ## Working Agreements
 

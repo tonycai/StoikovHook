@@ -231,3 +231,17 @@ Fix: Floor the elapsed time at 1 s ($\Delta t = \max(\text{now} - t_\text{last},
 **Next**: Ignore local files, correct the CREATE2 guidance in `CLAUDE.md`, then build the hook skeleton.
 
 ---
+
+## [2026-09-25 21:46 JST] Ignore local files and correct the CREATE2 guidance
+
+**Goal**: Keep `.DS_Store` and `.env.dev` out of git, and correct the "CREATE2 address taken" advice in `CLAUDE.md`.
+
+**Result**:
+- `.gitignore` now lists `.env.dev` explicitly (it was already covered by `.env*`) and `.DS_Store` under a new macOS section. `git check-ignore -v` confirms both are ignored, and the working tree has no untracked files.
+- `CLAUDE.md`, Known Environment Issues: `HookMiner.find` already skips occupied addresses (`HookMiner.sol:36`). Change the bytecode only if mining fails after exhausting all `MAX_LOOP = 160,444` salts (`HookMiner.sol:14`), and after any change re-mine the address and update the deployment script. The old advice ("change `optimizer_runs`") contradicted the pinned-compiler-settings rule.
+
+**Issues**: None.
+
+**Next**: Build the hook skeleton.
+
+---
