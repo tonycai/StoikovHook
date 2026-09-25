@@ -323,7 +323,7 @@ A revert inside `beforeSwap` blocks every swap in the pool. The design goal is t
 |---|---|
 | M1 | `StoikovHook` implementing §2–§5: `afterInitialize` + `beforeSwap`, immutable parameters, single-slot state, `FeeWindowUpdated` event |
 | M2 | Foundry unit, fuzz and gas tests (see the criteria below) |
-| M3 | Deterministic **scenario comparison**: one scripted price path (calm → jump → trend → reversal), an arbitrageur that trades each pool to the reference price whenever that is profitable net of fees, and scripted uninformed flow. Pools compared: StoikovHook vs. static 0.05% and 0.30%. Outputs: LP fee income, arbitrageur profit (realized LVR) and LP value marked to the reference price |
+| M3 | Deterministic **scenario comparison**: one scripted price path (calm → jump → trend → reversal), an arbitrageur that trades each pool to the reference price whenever that is profitable net of fees, and scripted uninformed flow. Pools compared: StoikovHook vs. static 0.05%, static 0.30%, and a **fee-matched** static pool whose fee equals StoikovHook's realized volume-weighted average fee on the uninformed flow. The uninformed flow is scripted and does not react to fees, so a higher static fee always "wins" on that flow. The fee-matched baseline holds the cost to uninformed traders constant and isolates the effect of the fee's *shape*. Outputs: LP fee income, arbitrageur profit (realized LVR) and LP value marked to the reference price |
 | M4 | Deployment script: mine the address (flags taken from `getHookPermissions()`), deploy with CREATE2, initialize a dynamic-fee pool, add liquidity, run demo swaps. Runs end-to-end on anvil (Sepolia fork) and on Sepolia |
 | M5 | README repository guide with `file:line` pointers, plus deployed addresses and transaction hashes |
 
@@ -339,7 +339,7 @@ A revert inside `beforeSwap` blocks every swap in the pool. The design goal is t
 | A6 | Swaps in the same block see the same `(feeUp, feeDown)`. A same-block round trip followed by a large swap pays the same fee as the large swap alone |
 | A7 | Across fuzzed sequences of $(\Delta t,\ \text{direction},\ \text{size})$, every fee lies in $[f_{\min}, f_{\max}]$ and no swap reverts inside the hook |
 | A8 | Gas measured with Foundry gas snapshots and recorded in `docs/BUILD_LOG.md`. Targets: cached path ≤ 5 000 gas; window-open path ≤ 25 000 gas (hook execution only) |
-| A9 | The M3 comparison runs deterministically and prints a metrics table for all three pools. The result is reported in the README **whichever way it comes out** |
+| A9 | The M3 comparison runs deterministically and prints a metrics table for all four pools, the fee-matched baseline included. The result is reported in the README **whichever way it comes out** |
 | A10 | On Sepolia: the hook is deployed at an address whose low 14 bits equal `0x1080`, the source is verified on the explorer, a dynamic-fee pool is initialized, and at least 2 swaps in opposite directions paid different fees. Transaction hashes are recorded |
 
 ### 6.2 Stretch (if time allows)
@@ -361,7 +361,7 @@ A revert inside `beforeSwap` blocks every swap in the pool. The design goal is t
 
 1. Are the parameter defaults in §2.7 acceptable as placeholders until S2?
 2. Should the skew scale with $\sigma$ (the GLFT form used here), or should an additional σ-independent component keep it active in calm markets?
-3. Are static 0.05% and 0.30% the right M3 baselines?
+3. M3 baselines: static 0.05%, static 0.30% and a fee-matched static pool (the primary comparison). Keep all three?
 4. Window key: `block.timestamp` (proposed) or `block.number`?
 5. Setting the stored LP fee to $f_0$ in `afterInitialize` (§4.1): keep it?
 
