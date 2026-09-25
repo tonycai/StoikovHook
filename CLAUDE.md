@@ -1,82 +1,91 @@
-# CLAUDE.md — StoikovHook AI 协作规范
+# CLAUDE.md — StoikovHook
 
-本文件写给之后每一轮的 Claude Code 看。开始工作前先读完。
+Collaboration rules for every Claude Code session in this repository. Read this file in full before starting work.
 
-## 项目背景
+## Language Policy
 
-StoikovHook 是一个 Uniswap v4 Hook，用 Avellaneda-Stoikov 做市模型驱动动态手续费。
-ETHGlobal Tokyo 2026 参赛作品，Start From Scratch 赛道，目标赛道 Uniswap Foundation Best Uniswap Stack Contribution。
-截止时间 2026-09-27 09:00 JST。
+**Everything committed to this repository is written in English.** It must read as natural technical English written by a native speaker, not as a translation from Chinese. This is a global hackathon, and the judges and sponsors read English.
 
-设计规格见 `specs/01-design.md`。实现必须以规格为准，规格经 Tony 确认后才能开始实现。
+Scope:
+- `README.md` and every document under `specs/` and `docs/`
+- `CLAUDE.md`, `AI_USAGE.md`, `FEEDBACK.md`
+- Code comments and NatSpec
+- Git commit messages
+- Identifiers: variable, function, event and error names, and revert messages
+- Test names and assertion messages
+- The demo script, `docs/DEMO_SCRIPT.md`
 
-## 技术栈
+Style:
+- Write the way a native speaker would, and avoid sentence structures carried over from Chinese.
+- Use standard industry terms: adverse selection, inventory skew, LVR, tick, liquidity provider (LP).
+- Keep sentences short and direct. Avoid long chains of subordinate clauses.
+- No machine-translation tone.
 
-Solidity（版本以 `foundry.toml` 为准）、Foundry、Uniswap v4-core / v4-periphery、
-hookmate（地址常量）、本地 anvil fork Sepolia。
+Conversations with Tony may be in Chinese. Anything that lands in the repository must be in English.
 
-## 硬性约束
+## Project Context
 
-- 编译参数固定在 `foundry.toml`，不得依赖环境变量。
-  CREATE2 挖出的 Hook 地址由字节码决定，编译参数一变，地址就失效。
-- `getHookPermissions()` 声明的权限必须与 HookMiner 使用的 flags 严格一致。
-  改动其中一个，必须同步另一个并重新挖地址。
-- 脚本中禁止使用 `address(this)`，forge 广播时会拒绝；用 deployer 地址变量。
-- 私钥只能通过 keystore（`--account`）使用，禁止写进命令行、`.env` 或任何文件。
-- 禁止打印 RPC URL 的实际值。
-- 禁止对真实网络使用 `--resume` 重放 broadcast 记录。
-- 仓库是公开的。提交前确认 `.gitignore` 覆盖 `.env*`、`cache/`、`broadcast/`、`out/`。
+StoikovHook is a Uniswap v4 hook that sets dynamic swap fees using the Avellaneda–Stoikov market-making model. It is an ETHGlobal Tokyo 2026 entry in the Start From Scratch track, targeting the Uniswap Foundation "Best Uniswap Stack Contribution" prize. The submission deadline is 2026-09-27 09:00 JST.
 
-## 已知环境问题与解法
+The design spec is `specs/01-design.md`. The implementation must follow it and must not start until Tony has approved the spec.
 
-- HookMiner 挖地址时 gas 不足：部署脚本加
-  `--gas-limit 100000000000 --disable-block-gas-limit`
-- anvil 闲置导致时间戳落后，swap 报 `DeadlinePassed`：
-  anvil 启动时加 `--block-time 1`
-- CREATE2 候选地址被占：调整 `optimizer_runs` 改变字节码
+## Tech Stack
 
-## 工作方式
+Solidity (version pinned in `foundry.toml`), Foundry, Uniswap v4-core / v4-periphery, hookmate (address constants), and a local anvil fork of Sepolia.
 
-- 每个可工作的中间态立即 commit，禁止攒大提交（评委会审查 git 历史）
-- 涉及费率计算、状态机、资金安全的改动，先输出 diff 供 Tony 确认，再合并
-- 每个任务完成后，追加记录到 `docs/BUILD_LOG.md`
-- 开发中遇到的 Uniswap 工具链问题，同步记一条到 `FEEDBACK.md`
-  （这是 Uniswap 赛道的硬性参赛要求）
-- 任何结论都要给出 `file:line` 证据，不做无依据的断言
+## Hard Constraints
 
-### 功能完成后的固定流程
+- Compiler settings are pinned in `foundry.toml` and must not depend on environment variables. The CREATE2-mined hook address is derived from the bytecode, so any change to the compiler settings invalidates it.
+- The permissions returned by `getHookPermissions()` must exactly match the flags passed to HookMiner. If you change one, update the other and re-mine the address.
+- Never use `address(this)` in scripts, because forge rejects it when broadcasting. Use a deployer address variable instead.
+- Use private keys only through a Foundry keystore (`--account`). Never put them on the command line, in `.env`, or in any file.
+- Never print the actual value of an RPC URL.
+- Never use `--resume` to replay broadcast records against a live network.
+- The repository is public. Before committing, confirm that `.gitignore` covers `.env*`, `cache/`, `broadcast/` and `out/`.
 
-每当一项功能达到可工作状态（测试通过），按顺序执行以下四步，不要跳过：
+## Known Environment Issues
 
-1. **更新 README.md**
-   - 「Core Features」：把新功能改为已完成状态，去掉 🚧 标记
-   - 「Repository Guide」：补上该功能对应的合约文件路径和关键代码行号，
-     格式为 `src/StoikovHook.sol:L120-L145 — 费率计算主逻辑`。
-     这是 Uniswap 赛道的硬性要求，评委据此验证集成
-   - 如涉及架构变化，同步更新 Mermaid 图
-   - 只写已实现的内容，未完成的保持 🚧 标记
+- **HookMiner runs out of gas while mining.** Run the deployment script with `--gas-limit 100000000000 --disable-block-gas-limit`.
+- **An idle anvil falls behind on timestamps, and swaps revert with `DeadlinePassed`.** Start anvil with `--block-time 1`.
+- **The CREATE2 candidate address is already taken.** Change `optimizer_runs` to change the bytecode.
 
-2. **追加记录到 `docs/BUILD_LOG.md`**
-   按既有格式写明目标、结果、遇到的问题、下一步。
-   关键数值（测试通过数、gas 消耗、合约地址）必须记录
+## Working Agreements
 
-3. **如果过程中遇到 Uniswap 工具链、文档或 v4 接口的问题**，
-   同步记一条到 `FEEDBACK.md`
+- Commit every working intermediate state immediately. Do not batch work into large commits, because judges review the git history.
+- For changes to fee calculation, the state machine or fund safety, show Tony the diff and get approval before committing.
+- After every task, append an entry to `docs/BUILD_LOG.md`.
+- Whenever you hit a Uniswap toolchain issue, log it in `FEEDBACK.md` right away. This is a hard submission requirement for the Uniswap track.
+- Back every conclusion with `file:line` evidence. Make no unsupported claims.
 
-4. **提交并推送到 main**
+### Feature Completion Checklist
+
+When a feature reaches a working state (its tests pass), run these four steps in order. Do not skip any of them.
+
+1. **Update `README.md`**
+   - Core Features: mark the feature ✅ Done and remove its 🚧 marker.
+   - Repository Guide: add the contract path and key line range for the feature, formatted as `src/StoikovHook.sol:L120-L145 — main fee calculation`. This is a hard requirement for the Uniswap track, because judges use it to verify the integration.
+   - If the architecture changed, update the Mermaid diagrams.
+   - Describe only what is implemented. Anything unfinished keeps its 🚧 marker.
+
+2. **Append an entry to `docs/BUILD_LOG.md`**
+   Use the established format: Goal, Result, Issues, Next. Always record the key numbers: test counts, gas usage and contract addresses.
+
+3. **Log in `FEEDBACK.md` any issue you hit** with the Uniswap toolchain, the documentation or the v4 interfaces.
+
+4. **Commit and push to main**
    ```bash
    git add -A
-   git commit -m "<type>: <简明描述>"
+   git commit -m "<type>: <concise description>"
    git push origin main
    ```
-   提交信息用 Conventional Commits 格式：`feat` / `fix` / `test` / `docs` / `chore` / `refactor`
+   Commit messages follow Conventional Commits: `feat` / `fix` / `test` / `docs` / `chore` / `refactor`.
 
-### 分支策略
+### Branching
 
-单人维护，直接提交 main，不开 PR，不建功能分支。
+There is a single maintainer, so commit directly to main. No pull requests and no feature branches.
 
-### 提交纪律
+### Commit Discipline
 
-- 一个功能一次提交，禁止把多个功能攒在一起提交
-- 提交前确认 `git status` 中没有 `.env` 开头的文件、`cache/`、`broadcast/` 目录
-- 评委会审查 git 历史，单次巨量提交会被质疑
+- One feature per commit. Never bundle several features into one commit.
+- Before committing, check that `git status` shows no files starting with `.env` and no `cache/` or `broadcast/` directories.
+- Judges review the git history, and a single huge commit will draw scrutiny.

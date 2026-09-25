@@ -1,193 +1,211 @@
 # StoikovHook Build Log
-ETHGlobal Tokyo 2026 — 从 2026-09-25 21:00 JST 开赛
+ETHGlobal Tokyo 2026 — hacking started 2026-09-25 21:00 JST
 
-## [2026-09-25 21:03 JST] 从 v4-template 创建仓库
+## [2026-09-25 21:03 JST] Create the repository from v4-template
 
-**目标**：以 `uniswapfoundation/v4-template` 为模板创建公开仓库并克隆到本地。
+**Goal**: Create a public repository from the `uniswapfoundation/v4-template` template and clone it locally.
 
-**结果**：
-- 仓库：https://github.com/tonycai/StoikovHook（public，GitHub 创建时间 12:03:53 UTC）
-- 命令：`gh repo create tonycai/StoikovHook --template uniswapfoundation/v4-template --public --clone`
-- 模板初始提交：`dfbe4cf Initial commit`
+**Result**:
+- Repository: https://github.com/tonycai/StoikovHook (public, created on GitHub at 12:03:53 UTC)
+- Command: `gh repo create tonycai/StoikovHook --template uniswapfoundation/v4-template --public --clone`
+- Initial commit from the template: `dfbe4cf Initial commit`
 
-**遇到的问题**：克隆下来的 `lib/forge-std`、`lib/hookmate`、`lib/uniswap-hooks` 都是空目录。
-根因：`--clone` 只做普通 `git clone`，不带 `--recurse-submodules`，子模块没有检出。
-解法：运行 `forge install`，它按 `.gitmodules` 递归检出子模块，版本以 `foundry.lock` 锁定的 rev 为准（见下一条）。
+**Issues**: After cloning, `lib/forge-std`, `lib/hookmate` and `lib/uniswap-hooks` were empty directories.
+Root cause: `--clone` runs a plain `git clone` without `--recurse-submodules`, so the submodules were not checked out.
+Fix: Run `forge install`. It checks out the submodules listed in `.gitmodules` recursively, at the revisions pinned in `foundry.lock` (see "Install dependencies and pass the baseline tests" below).
 
-**下一步**：脚手架搭建（.gitignore、foundry.toml、目录与文档骨架）。
-
----
-
-## [2026-09-25 21:06 JST] 脚手架搭建
-
-**目标**：修正 .gitignore，固定编译参数（CREATE2 挖出的 Hook 地址依赖字节码），建立 specs/ 与文档骨架。
-
-**结果**：
-- `.gitignore` 覆盖 `.env*`、`cache/`、`broadcast/`、`out/`，已用 `git check-ignore -v` 验证
-- `foundry.toml` 固定编译参数，`forge config` 确认生效值：`solc = "0.8.30"`、`auto_detect_solc = false`、`evm_version = "cancun"`、`optimizer = true`、`optimizer_runs = 7777`、`via_ir = false`、`bytecode_hash = "none"`
-- 新建 `specs/`（`.gitkeep`）、`AI_USAGE.md`、`FEEDBACK.md`（仅标题和空章节）
-- `README.md` 首行加 "Built at ETHGlobal Tokyo 2026"
-
-**遇到的问题**：
-1. 模板的 `.gitignore` 用 `!/broadcast` 白名单，只忽略 `/broadcast/*/31337/`、`/broadcast/*/5/`、`dry-run/`。
-   根因：模板写于 Goerli 时期，只排除了本地链和 Goerli。Sepolia（11155111）和主网的广播记录会被提交进公开仓库。
-   解法：改为直接忽略 `broadcast/`。
-2. 模板 CI（`.github/workflows/test.yml`）设置了 `FOUNDRY_PROFILE: ci`，但 `foundry.toml` 里没有 `[profile.ci]`。
-   根因：CI 的编译配置依赖环境变量；以后有人加一个 `[profile.ci]`，CI 产出的字节码就和本地不同。
-   解法：删掉这个 env。
-3. 注意：`FOUNDRY_*` 环境变量在运行时仍能覆盖 `foundry.toml`，配置文件本身挡不住。本机已确认没有设置任何 `FOUNDRY_*`/`DAPP_*` 变量。
-4. 注意：`.env*` 也会忽略 `.env.example`；以后如需提交它，要加 `!.env.example`。
-
-问题 1、2 属于 v4-template 的问题，之后整理进 FEEDBACK.md。
-
-**下一步**：安装依赖，跑基线测试，提交首个 commit。
+**Next**: Scaffolding (`.gitignore`, `foundry.toml`, directory layout and doc skeletons).
 
 ---
 
-## [2026-09-25 21:06 JST] 依赖安装与基线测试通过
+## [2026-09-25 21:06 JST] Scaffolding
 
-**目标**：安装依赖，确认模板自带测试在固定编译参数下全部通过，并完成首次提交。
+**Goal**: Fix `.gitignore`, pin the compiler settings (the CREATE2-mined hook address depends on the bytecode), and create `specs/` and the doc skeletons.
 
-**结果**：
-- 工具链：forge 1.5.0-stable（`1c57854`），solc 0.8.30
-- 依赖（由 `foundry.lock` 锁定）：forge-std v1.10.0（`8bbcf6e`）、uniswap-hooks v1.1.0（`e59fe72`）、hookmate（`33408fb`）
-- `forge build`：编译 80 个文件，成功
-- `forge test`（21:05）：**8 passed / 0 failed / 0 skipped**
-  - `CounterTest`：`testCounterHooks` gas 183563，`testLiquidityHooks` gas 167640
-  - `EasyPosmTest`：6 项全部通过（`test_mintLiquidity` gas 429042、`test_increaseLiquidity` gas 490783 等）
-- 提交：`6aee28d chore: bootstrap from v4-template`（本地提交，尚未 push）
+**Result**:
+- `.gitignore` covers `.env*`, `cache/`, `broadcast/` and `out/`, verified with `git check-ignore -v`.
+- `foundry.toml` pins the compiler settings. `forge config` confirms the effective values: `solc = "0.8.30"`, `auto_detect_solc = false`, `evm_version = "cancun"`, `optimizer = true`, `optimizer_runs = 7777`, `via_ir = false`, `bytecode_hash = "none"`.
+- Added `specs/` (with `.gitkeep`), `AI_USAGE.md` and `FEEDBACK.md` (headings only).
+- Added "Built at ETHGlobal Tokyo 2026" as the first line of `README.md`.
 
-**遇到的问题**：`forge install` 用时约 67 秒。uniswap-hooks 下面嵌套了 v4-core、v4-periphery、openzeppelin-contracts、solmate、permit2 等多层子模块，这属于正常情况，不是故障。
+**Issues**:
+1. The template's `.gitignore` whitelists `/broadcast` (`!/broadcast`) and ignores only `/broadcast/*/31337/`, `/broadcast/*/5/` and `dry-run/`.
+   Root cause: The template dates from the Goerli era and only excludes the local chain and Goerli. Broadcast logs for Sepolia (11155111) and mainnet would be committed to a public repository.
+   Fix: Ignore `broadcast/` entirely.
+2. The template CI (`.github/workflows/test.yml`) sets `FOUNDRY_PROFILE: ci`, but `foundry.toml` has no `[profile.ci]`.
+   Root cause: CI's compiler configuration depends on an environment variable. If someone later adds a `[profile.ci]`, CI would produce different bytecode from local builds.
+   Fix: Removed the env var.
+3. Note: `FOUNDRY_*` environment variables can still override `foundry.toml` at runtime, and the config file cannot prevent that. Confirmed that no `FOUNDRY_*` or `DAPP_*` variables are set on this machine.
+4. Note: `.env*` also ignores `.env.example`. If we ever need to commit one, add `!.env.example`.
 
-**下一步**：编写设计规格 `specs/01-design.md`（动态费率模型），经 Tony 确认后再开始实现。
+Issues 1 and 2 are v4-template problems, to be written up in FEEDBACK.md.
 
----
-
-## [2026-09-25 21:17 JST] 建立开发日志机制
-
-**目标**：创建 `docs/BUILD_LOG.md` 作为主日志，补记开赛以来已完成的工作。
-
-**结果**：新建 `docs/BUILD_LOG.md`，补记 3 条（仓库创建、脚手架搭建、基线测试）。之后每完成一个任务就追加一条，时间用 JST，精确到分钟，不记录 RPC URL、私钥等敏感值。
-
-**遇到的问题**：`git add docs/BUILD_LOG.md` 被拒绝，提示路径被忽略。
-根因：v4-template 的 `.gitignore` 里有 `docs/`，本意是忽略 `forge doc` 的输出目录，却把 `docs/` 整个目录都挡掉了。
-解法：从 `.gitignore` 删除 `docs/`，并用 `git check-ignore` 确认 `docs/BUILD_LOG.md` 已可追踪。
-注意：之后如果要跑 `forge doc`，需把输出目录改到 `docs/` 以外，否则生成的文件会混进 `docs/`。这一条也属于模板问题，之后整理进 FEEDBACK.md。
-
-**下一步**：完成 `specs/01-design.md`；然后写 `CLAUDE.md` 和 README 骨架。
+**Next**: Install dependencies, run the baseline tests and make the first commit.
 
 ---
 
-## [2026-09-25 21:26 JST] 设计规格：动态费率模型
+## [2026-09-25 21:06 JST] Install dependencies and pass the baseline tests
 
-**目标**：写出 `specs/01-design.md`，面向 Uniswap Foundation 工程师，定下费率公式、链上状态、回调、安全约束和 MVP 范围。不写实现代码。
+**Goal**: Install dependencies, confirm that the template's own tests pass under the pinned compiler settings, and make the first commit.
 
-**结果**：
-- `specs/01-design.md`（373 行）共 7 节：问题陈述、费率模型、链上状态、回调与权限、安全约束、范围（MVP 5 项、验收标准 A1–A10、Stretch S1–S6）、待评审问题
-- 费率公式采用 GLFT（A–S 的 T→∞ 平稳解）结构：$f(s) = \mathrm{clamp}(f_0 + \sigma_h(\alpha + \beta s \hat q), f_{\min}, f_{\max})$，按方向分 $f_\uparrow$ / $f_\downarrow$
-- 输入只有池子自身的 `slot0.tick` 和 `block.timestamp`，不用预言机
-- 每个池子的状态打包进 1 个 slot（208 bit）；每个 timestamp 窗口只在第一笔 swap 时更新一次，后续 swap 读缓存
-- 回调：`afterInitialize` + `beforeSwap`，Hook 地址 flags = `0x1080`；费率通过 `OVERRIDE_FEE_FLAG` 按笔覆盖
-- 所有 v4 接口结论都附了 `file:line` 证据；数值例（费率表、波动冲击后回落时间、位宽上界）已用脚本复算
+**Result**:
+- Toolchain: forge 1.5.0-stable (`1c57854`), solc 0.8.30
+- Dependencies (pinned by `foundry.lock`): forge-std v1.10.0 (`8bbcf6e`), uniswap-hooks v1.1.0 (`e59fe72`), hookmate (`33408fb`)
+- `forge build`: 80 files compiled successfully
+- `forge test` (21:05): **8 passed / 0 failed / 0 skipped**
+  - `CounterTest`: `testCounterHooks` 183,563 gas, `testLiquidityHooks` 167,640 gas
+  - `EasyPosmTest`: all 6 passed (`test_mintLiquidity` 429,042 gas, `test_increaseLiquidity` 490,783 gas, and others)
+- Commit: `6aee28d chore: bootstrap from v4-template` (local only, not yet pushed)
 
-**遇到的问题**：
-1. 动态费率池初始化后 `slot0.lpFee = 0`（`LPFeeLibrary.sol:51-54`）。如果 Hook 某次没有返回覆盖费率，swap 就是 0 手续费。
-   解法：规格要求在 `afterInitialize` 里调用 `updateDynamicLPFee(key, f0)` 作为兜底（库注释 `LPFeeLibrary.sol:48` 也推荐这么做）。这一条记作 v4 接口使用注意，之后整理进 FEEDBACK.md。
-2. 如果按每笔 swap 的即时状态算库存偏斜，在同一笔交易里先反向小额交易越过参考价，再做大额交易，就能拿到折扣费率。
-   解法：费率按 timestamp 窗口快照，同一窗口内固定。跨区块的残余风险写进 §5.4，由 S1 覆盖。
-3. EMA 参考价如果用整数 tick 存储，在 τ_R = 900 时，位移不到 901 tick 就一步都不会动（整数除法截断为 0）。
-   解法：规格要求用 16 位小数定点存储。
+**Issues**: `forge install` took about 67 seconds, because uniswap-hooks nests several layers of submodules (v4-core, v4-periphery, openzeppelin-contracts, solmate, permit2 and others). This is expected, not a fault.
 
-**下一步**：Tony 评审规格（§7 有 5 个待定问题）；同时写 `CLAUDE.md` 和 README 骨架。
+**Next**: Write the design spec `specs/01-design.md` (dynamic fee model). Implementation starts only after Tony approves it.
 
 ---
 
-## [2026-09-25 21:30 JST] CLAUDE.md 与 README 骨架
+## [2026-09-25 21:17 JST] Set up the build log
 
-**目标**：写 AI 协作规范 `CLAUDE.md`，以及面向评委的 README 骨架（12 节）。
+**Goal**: Create `docs/BUILD_LOG.md` as the main development log and backfill the work done since hacking started.
 
-**结果**：
-- `CLAUDE.md`：项目背景、技术栈、硬性约束（编译参数固定、权限与 HookMiner flags 一致、keystore、不打印 RPC URL、禁止对真实网络用 `--resume`）、已知环境问题、工作方式
-- `README.md` 全部重写，替换掉模板内容。12 节依次是：标题/定位、Problem、Solution、Architecture（2 张 Mermaid 图）、Core Features、How It Works、Tech Stack、Repository Guide（占位表）、Getting Started、Deployed Contracts（占位）、Demo（占位）、Built With AI
-- 所有未实现项都标了 "🚧 In progress"，顶部加了 "Project status: design phase" 提示框
-- Mermaid 两张图都用 mermaid-cli 11.17.0 本地渲染验证通过（组件图 flowchart、时序图 sequenceDiagram 共 12 步）
+**Result**: Created `docs/BUILD_LOG.md` with 3 backfilled entries (repository creation, scaffolding, baseline tests). From now on, one entry is appended per completed task. Entries are timestamped in JST to the minute and never contain RPC URLs, private keys or other secrets.
 
-**遇到的问题**：组件图初版用 `flowchart LR`，把 PoolManager 画成 subgraph，从 subgraph 边框连出去的 `beforeSwap()` 标签被节点遮住一半。
-根因：从 subgraph 边框连出的边，标签会被放在 subgraph 内侧。
-解法：改成 `flowchart TB`，PoolManager 和 Pool 作为 "Uniswap v4 core" subgraph 里的普通节点，StoikovHook 和它的状态放进另一个 subgraph。重新渲染后所有标签完整可见。
-另外，时序图消息里避开了 `;` 和 `|`（Mermaid 会把 `;` 当语句分隔符），写成 "fee + OVERRIDE_FEE_FLAG"。
+**Issues**: `git add docs/BUILD_LOG.md` was refused because the path is ignored.
+Root cause: The v4-template `.gitignore` contains `docs/`. It is meant for `forge doc` output, but it blocks the whole `docs/` directory.
+Fix: Removed `docs/` from `.gitignore` and confirmed with `git check-ignore` that `docs/BUILD_LOG.md` can be tracked.
+Note: If we ever run `forge doc`, point its output outside `docs/`, or the generated files will mix with our own docs. This is another template issue for FEEDBACK.md.
 
-**下一步**：在 CLAUDE.md 里补上"功能完成后的固定流程"。
+**Next**: Finish `specs/01-design.md`, then write `CLAUDE.md` and the README skeleton.
 
 ---
 
-## [2026-09-25 21:30 JST] 定义功能完成后的固定流程
+## [2026-09-25 21:26 JST] Design spec: dynamic fee model
 
-**目标**：在 `CLAUDE.md`「工作方式」一节下固定每项功能完成后的收尾流程。
+**Goal**: Write `specs/01-design.md` for Uniswap Foundation engineers. It fixes the fee formula, on-chain state, callbacks, security constraints and MVP scope, and contains no implementation code.
 
-**结果**：`CLAUDE.md` 新增 3 个小节：
-- 功能完成后的固定流程：更新 README（Core Features 状态、Repository Guide 行号、Mermaid 图）→ 追加 BUILD_LOG → 同步 FEEDBACK.md → 提交并 push 到 main
-- 分支策略：单人直接提交 main
-- 提交纪律：一个功能一次提交；提交前检查 `.env*`、`cache/`、`broadcast/`
+**Result**:
+- `specs/01-design.md` (373 lines) has 7 sections: problem statement, fee model, on-chain state, callbacks and permissions, security constraints, scope (5 MVP deliverables, acceptance criteria A1–A10, stretch goals S1–S6), and open questions for review.
+- The fee formula follows the GLFT structure (the stationary T→∞ solution of A–S): $f(s) = \mathrm{clamp}(f_0 + \sigma_h(\alpha + \beta s \hat q), f_{\min}, f_{\max})$, split by direction into $f_\uparrow$ and $f_\downarrow$.
+- The only inputs are the pool's own `slot0.tick` and `block.timestamp`. No oracle.
+- Per-pool state packs into one slot (208 bits). Each timestamp window is updated only on its first swap; later swaps read the cache.
+- Callbacks are `afterInitialize` + `beforeSwap`, so the hook address flags are `0x1080`. The fee is overridden per swap through `OVERRIDE_FEE_FLAG`.
+- Every claim about v4 interfaces cites `file:line`. The worked numbers (fee table, decay time after a volatility shock, bit-width bounds) were recomputed with a script.
 
-**遇到的问题**：无。
+**Issues**:
+1. Dynamic-fee pools start with `slot0.lpFee = 0` (`LPFeeLibrary.sol:51-54`). If the hook ever failed to return an override fee, that swap would pay zero fee.
+   Fix: The spec requires calling `updateDynamicLPFee(key, f0)` in `afterInitialize` as a fallback, which the library comment at `LPFeeLibrary.sol:48` also recommends. Recorded as a v4 interface pitfall for FEEDBACK.md.
+2. If the inventory skew were computed from live per-swap state, a single transaction could make a small opposite-direction trade across the reference price and then trade large at the discounted rate.
+   Fix: Fees are snapshotted per timestamp window and stay fixed within it. The residual cross-block risk is documented in §5.4 and addressed by S1.
+3. With τ_R = 900, an EMA reference stored as an integer tick would never move for displacements under 901 ticks, because integer division truncates the update to 0.
+   Fix: The spec stores the reference as fixed point with 16 fractional bits.
 
-**下一步**：README 写实 Goals / Core Features / Non-Goals，并写 `docs/DEMO_SCRIPT.md`。
-
----
-
-## [2026-09-25 21:35 JST] README 目标与边界、演示稿、FEEDBACK 首批条目
-
-**目标**：README 写实 Goals / Core Features / Non-Goals；新建 `docs/DEMO_SCRIPT.md`（视频脚本、现场评审流程、问答准备）；按 CLAUDE.md 流程同步 FEEDBACK.md 并推送。
-
-**结果**：
-- README：
-  - 新增 Goals（G1–G4，每条都写了验证方式，状态均为 📋）
-  - Core Features 改成表格，用 ✅ / 🚧 / 📋 标状态：只有"脚手架"是 ✅；5 项费率相关功能是 🚧（规格已写、代码未开始）；测试、对比模拟、Sepolia 部署是 📋
-  - 新增 Non-Goals（6 条）
-- `docs/DEMO_SCRIPT.md`：视频 5 段（共 3:30）；现场 4 分钟流程，结论先行；问答 6 道必答题加 5 道追问；待填数值清单 17 项
-- `FEEDBACK.md`：首批 5 条（v4-template 3 条、v4 接口 1 条、做得好的 4 点）
-- 规格补充（单独提交 `8af5950`）：M3 增加"同均价静态池"基线，A9 改为 4 个池子
-
-**遇到的问题**：G1 最初想写成"LP 终值高于静态 0.05% / 0.30% 池"。
-根因：模拟里普通用户的订单流是脚本写死的，不会因为费率变化而改变。在这种设定下，费率越高的静态池对 LP 越有利，"赢过 0.30%"几乎只取决于平均费率高低，说明不了模型本身的效果。
-解法：主要对比对象改成"对普通用户收取相同平均费率的静态池"，只比较费率*形状*的效果；0.05% / 0.30% 作为参考一并报告。已同步到规格 M3/A9，需 Tony 评审确认。
-
-**下一步**：推送；然后设置 GitHub 仓库描述和 topics，检查 README（含 Mermaid）在 GitHub 上的渲染。
+**Next**: Tony reviews the spec (§7 lists 5 open questions). Meanwhile, write `CLAUDE.md` and the README skeleton.
 
 ---
 
-## [2026-09-25 21:37 JST] GitHub 仓库展示信息与渲染检查
+## [2026-09-25 21:30 JST] CLAUDE.md and README skeleton
 
-**目标**：推送本地提交；设置仓库描述和 topics；确认 README（尤其是 Mermaid）在 GitHub 上渲染正常。
+**Goal**: Write the AI collaboration rules in `CLAUDE.md` and a judge-facing README skeleton with 12 sections.
 
-**结果**：
-- 推送：`dfbe4cf..fd4cdeb` 共 7 个提交推到 `origin/main`；推送前确认没有跟踪 `.env*`、`cache/`、`broadcast/`、`out/`
-- 描述（93 字符）："Uniswap v4 hook using the Avellaneda-Stoikov model for dynamic fees that protect LPs from LVR"
-- Topics（9 个）：avellaneda-stoikov, defi, dynamic-fees, ethglobal, foundry, market-making, solidity, uniswap-hooks, uniswap-v4
-- README 在 GitHub 上：2 张 Mermaid 图都渲染成功（没有 "Unable to render" 报错，截图确认组件图和时序图完整、标签可读）；NOTE 提示框、4 张表格正常；页面上没有残留 ```mermaid 原文
-- `specs/01-design.md`：GitHub 识别出 199 个数学表达式；用 MathJax 3（与 GitHub 同一引擎）本地逐个编译，199/199 无错误（其中 7 个行间公式）
+**Result**:
+- `CLAUDE.md`: project context, tech stack, hard constraints (pinned compiler settings, permissions matching the HookMiner flags, keystore only, never print RPC URLs, no `--resume` against live networks), known environment issues, and working agreements.
+- `README.md` rewritten from scratch, replacing the template content. Sections in order: title and tagline, Problem, Solution, Architecture (2 Mermaid diagrams), Core Features, How It Works, Tech Stack, Repository Guide (placeholder table), Getting Started, Deployed Contracts (placeholder), Demo (placeholder), Built With AI.
+- Every unimplemented item is marked "🚧 In progress", and a "Project status: design phase" callout sits at the top.
+- Both Mermaid diagrams were verified by rendering them locally with mermaid-cli 11.17.0 (a component flowchart and a 12-step sequence diagram).
 
-**遇到的问题**：自动化浏览器标签页处于后台（`document.visibilityState = "hidden"`），GitHub 的 `<math-renderer>` 不会执行，截图里公式显示为原始 `$...$`。
-根因：GitHub 的公式渲染要等页面可见才触发；Mermaid 用 iframe，不受影响。
-解法：DOM 已确认 199 个表达式都被识别为数学；再用 `mathjax-full@3` 在本地逐个编译，并把错误设为抛异常，确认没有语法问题。README 本身没有公式。
+**Issues**: The first version of the component diagram used `flowchart LR` with PoolManager drawn as a subgraph. The `beforeSwap()` label on an edge leaving the subgraph border was half hidden behind a node.
+Root cause: Labels on edges that start at a subgraph border are placed inside the subgraph.
+Fix: Switched to `flowchart TB`. PoolManager and Pool are now ordinary nodes inside a "Uniswap v4 core" subgraph, and StoikovHook and its state sit in a second subgraph. After re-rendering, every label is fully visible.
+The sequence-diagram messages also avoid `;` and `|` (Mermaid treats `;` as a statement separator), so the return value is written as "fee + OVERRIDE_FEE_FLAG".
 
-**下一步**：把横幅图 `docs/ethglobal-tokyo-2026.png` 放进 README 顶部。
+**Next**: Add the feature completion workflow to `CLAUDE.md`.
 
 ---
 
-## [2026-09-25 21:38 JST] README 顶部横幅
+## [2026-09-25 21:30 JST] Define the feature completion workflow
 
-**目标**：把 `docs/ethglobal-tokyo-2026.png` 作为横幅放在 README 标题之前。
+**Goal**: Define the wrap-up steps for every completed feature under "Working Agreements" in `CLAUDE.md`.
 
-**结果**：
-- 图片：PNG，1920×1080，8-bit RGB，无 alpha 通道，347,188 字节（< 1 MB，不需要压缩）
-- `git check-ignore -v` 没有输出（exit 1），说明图片不会被忽略
-- README 第 1–3 行插入 `<p align="center"><img src="docs/ethglobal-tokyo-2026.png" … width="100%"></p>`，使用相对路径
-- 目视确认图片内容：ETHGlobal Tokyo 活动横幅（September 25–27, 2026）
+**Result**: `CLAUDE.md` gained 3 subsections:
+- Feature completion checklist: update the README (Core Features status, Repository Guide line numbers, Mermaid diagrams), append to BUILD_LOG, log issues in FEEDBACK.md, then commit and push to main.
+- Branching: single maintainer, commit directly to main.
+- Commit discipline: one feature per commit; check for `.env*`, `cache/` and `broadcast/` before committing.
 
-**遇到的问题**：工作区里出现了未跟踪的 `.DS_Store`（macOS Finder 元数据），`.gitignore` 也有一处不是本任务做的改动（新增 `.env.dev`，这一行已被 `.env*` 覆盖）。按提交纪律只暂存本任务的文件，这两项都没有提交，交给 Tony 决定。
+**Issues**: None.
 
-**下一步**：推送后在浏览器确认横幅在 GitHub 上正常显示。
+**Next**: Flesh out Goals, Core Features and Non-Goals in the README, and write `docs/DEMO_SCRIPT.md`.
+
+---
+
+## [2026-09-25 21:35 JST] README goals and scope, demo script, first FEEDBACK entries
+
+**Goal**: Flesh out Goals, Core Features and Non-Goals in the README; create `docs/DEMO_SCRIPT.md` (video script, live judging flow, Q&A prep); update FEEDBACK.md and push, following the CLAUDE.md workflow.
+
+**Result**:
+- README:
+  - Added Goals (G1–G4). Each has a verification method, and all are 📋 Planned.
+  - Converted Core Features to a table with ✅ / 🚧 / 📋 statuses. Only scaffolding is ✅. The 5 fee-related features are 🚧 (spec drafted, code not started). Tests, the comparison simulation and the Sepolia deployment are 📋.
+  - Added Non-Goals (6 items).
+- `docs/DEMO_SCRIPT.md`: a 5-segment video script (3:30 total), a 4-minute live flow that leads with conclusions, Q&A prep with 6 required questions and 5 likely follow-ups, and a list of 17 values to fill in.
+- `FEEDBACK.md`: first 5 entries (3 v4-template issues, 1 v4 interface note, 1 prioritized list of suggestions), plus 4 things that worked well.
+- Spec update (separate commit `8af5950`): M3 adds a fee-matched static baseline, and A9 now covers 4 pools.
+
+**Issues**: G1 was first drafted as "LP terminal value beats the static 0.05% and 0.30% pools".
+Root cause: The simulated uninformed flow is scripted and does not react to fees. Under that setup a higher static fee always favors LPs, so beating 0.30% would mostly reflect the average fee level and say nothing about the model.
+Fix: The primary comparison is now a static pool that charges uninformed traders the same average fee, which isolates the effect of the fee's *shape*. The 0.05% and 0.30% pools are reported alongside for reference. Synced to spec M3/A9, pending Tony's review.
+
+**Next**: Push. Then set the GitHub description and topics, and check how the README (including Mermaid) renders on GitHub.
+
+---
+
+## [2026-09-25 21:37 JST] GitHub repository metadata and render check
+
+**Goal**: Push local commits, set the repository description and topics, and confirm that the README (especially the Mermaid diagrams) renders correctly on GitHub.
+
+**Result**:
+- Push: 7 commits `dfbe4cf..fd4cdeb` to `origin/main`. Confirmed beforehand that no `.env*`, `cache/`, `broadcast/` or `out/` paths are tracked.
+- Description (93 characters): "Uniswap v4 hook using the Avellaneda-Stoikov model for dynamic fees that protect LPs from LVR"
+- Topics (9): avellaneda-stoikov, defi, dynamic-fees, ethglobal, foundry, market-making, solidity, uniswap-hooks, uniswap-v4
+- README on GitHub: both Mermaid diagrams render with no "Unable to render" error, and screenshots confirm both are complete with readable labels. The NOTE callout and all 4 tables render correctly, and no raw ```mermaid source is left on the page.
+- `specs/01-design.md`: GitHub detects 199 math expressions. Compiling each one locally with MathJax 3 (the engine GitHub uses) gives 199/199 without errors, 7 of them display equations.
+
+**Issues**: The automated browser tab ran in the background (`document.visibilityState = "hidden"`), so GitHub's `<math-renderer>` never ran and screenshots showed raw `$...$`.
+Root cause: GitHub renders math only once the page is visible. Mermaid renders inside an iframe and is unaffected.
+Fix: Confirmed in the DOM that all 199 expressions are recognized as math, then compiled each one locally with `mathjax-full@3` with errors set to throw. No syntax errors. The README itself contains no math.
+
+**Next**: Add the banner image `docs/ethglobal-tokyo-2026.png` to the top of the README.
+
+---
+
+## [2026-09-25 21:38 JST] README banner
+
+**Goal**: Place `docs/ethglobal-tokyo-2026.png` as a banner above the README title.
+
+**Result**:
+- Image: PNG, 1920×1080, 8-bit RGB, no alpha channel, 347,188 bytes (under 1 MB, so no compression needed).
+- `git check-ignore -v` prints nothing (exit 1), so the image is not ignored.
+- Inserted `<p align="center"><img src="docs/ethglobal-tokyo-2026.png" … width="100%"></p>` as README lines 1–3, using a relative path.
+- Checked the image visually: it is the ETHGlobal Tokyo event banner (September 25–27, 2026).
+
+**Issues**: An untracked `.DS_Store` (macOS Finder metadata) appeared in the working tree, and `.gitignore` had a change this task did not make (a new `.env.dev` line, already covered by `.env*`). Following the commit discipline, only this task's files were staged, and neither item was committed. Left for Tony to decide.
+
+**Next**: After pushing, confirm in the browser that the banner displays on GitHub.
+
+---
+
+## [2026-09-25 21:45 JST] Adopt an English-only language policy
+
+**Goal**: Add a Language Policy to the top of `CLAUDE.md` requiring all repository content to be written in idiomatic English, then rewrite every Chinese passage already in the repository.
+
+**Result**:
+- "Language Policy" is now the first section of `CLAUDE.md`. It covers docs, comments and NatSpec, commit messages, identifiers, revert messages, test names and the demo script.
+- A scan of all tracked and untracked non-ignored files outside `lib/` for CJK characters found Chinese in 3 files: `CLAUDE.md` (55 lines), `docs/BUILD_LOG.md` (121 lines) and `docs/DEMO_SCRIPT.md` (151 lines). All commit messages were already in English.
+- Rewrote all three in English. A re-scan finds 0 lines with CJK characters.
+- `docs/BUILD_LOG.md`: earlier entries were translated in place with every timestamp, commit hash and number unchanged. The field labels are now Goal / Result / Issues / Next.
+- Follow-up from the previous entry: the README banner loads on GitHub at its natural 1920×1080 size and renders full width above the title.
+
+**Issues**: The build log is append-only, but the new policy required translating its existing entries.
+Fix: Translated in place without changing any facts, timestamps or numbers. This is the only rewrite of past entries.
+
+**Next**: Record the spec review decisions in `specs/01-design.md` §7, then start the hook skeleton.
 
 ---
