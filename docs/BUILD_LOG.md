@@ -120,3 +120,18 @@ ETHGlobal Tokyo 2026 — 从 2026-09-25 21:00 JST 开赛
 **下一步**：在 CLAUDE.md 里补上"功能完成后的固定流程"。
 
 ---
+
+## [2026-09-25 21:30 JST] 定义功能完成后的固定流程
+
+**目标**：在 `CLAUDE.md`「工作方式」一节下固定每项功能完成后的收尾流程。
+
+**结果**：`CLAUDE.md` 新增 3 个小节：
+- 功能完成后的固定流程：更新 README（Core Features 状态、Repository Guide 行号、Mermaid 图）→ 追加 BUILD_LOG → 同步 FEEDBACK.md → 提交并 push 到 main
+- 分支策略：单人直接提交 main
+- 提交纪律：一个功能一次提交；提交前检查 `.env*`、`cache/`、`broadcast/`
+
+**遇到的问题**：无。
+
+**下一步**：README 写实 Goals / Core Features / Non-Goals，并写 `docs/DEMO_SCRIPT.md`。
+
+---
