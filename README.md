@@ -5,7 +5,8 @@
 > Built at ETHGlobal Tokyo 2026
 
 > [!NOTE]
-> **Project status: design phase.** The fee model is fully specified in [`specs/01-design.md`](specs/01-design.md) (draft, under review). The hook itself is not implemented yet. Every item marked 🚧 In progress is **not** done.
+> **Project status: design phase.** The fee model is fully specified in [`specs/01-design.md`](specs/01-design.md) (draft, under review). The hook itself is not implemented yet.
+> Status legend: ✅ Done · 🚧 In progress · 📋 Planned. Anything not marked ✅ is **not** done.
 
 ## Problem
 
@@ -16,6 +17,17 @@ A professional market maker on a centralized exchange does not quote passively. 
 ## Solution
 
 StoikovHook gives a v4 pool both tools. For every block it computes two fees from the pool's own on-chain state: one for swaps that push the price up and one for swaps that push it down. A volatility premium raises both fees when the market is moving. An inventory skew charges more to swaps that push the pool further from its recent equilibrium and less to swaps that bring it back. The fee is applied per swap through v4's dynamic-fee override. There is no oracle, no admin key, and the hook never takes custody of tokens.
+
+## Goals
+
+Each goal is a measurable outcome with a named way to check it. None is achieved yet (📋). Results will be published here **whether or not** they meet the goal.
+
+| # | Goal | How it is verified | Status |
+|---|---|---|---|
+| G1 | **Better LP outcome for the same cost to traders.** Under identical order flow (same price path, same arbitrage and uninformed trades), LPs in the StoikovHook pool end with a higher terminal value, marked to the reference price, than LPs in a static-fee pool charging the same average fee to uninformed traders. Results against static 0.05% and 0.30% pools are reported alongside. | Deterministic Foundry scenario comparing four pools ([spec §6, M3](specs/01-design.md#61-mvp-must-ship-for-the-demo)) | 📋 Planned |
+| G2 | **Direction-aware fees on a live network.** On Sepolia, swaps in opposite directions pay different fees, as recorded in the `fee` field of the PoolManager's own `Swap` event. | Published transaction hashes, verified hook source | 📋 Planned |
+| G3 | **The hook never blocks trading.** Every fee stays within [0.01%, 1%], and no swap reverts inside the hook. | Fuzz tests (≥ 1,000 runs) over random swap sequences and time gaps | 📋 Planned |
+| G4 | **Low gas overhead.** ≤ 5,000 gas for swaps that reuse the block's cached fees, and ≤ 25,000 gas for the first swap of a block. | Foundry gas snapshots, recorded in the build log | 📋 Planned |
 
 ## Architecture
 
@@ -79,12 +91,28 @@ sequenceDiagram
 
 ## Core Features
 
-- 🚧 In progress: **Direction-aware dynamic fee.** Each block has two fees, one for price-up swaps and one for price-down swaps, applied per swap through v4's `OVERRIDE_FEE_FLAG`.
-- 🚧 In progress: **Volatility premium.** Both fees rise with an on-chain EWMA estimate of realized volatility, computed from the pool's own ticks.
-- 🚧 In progress: **Inventory skew.** Swaps that push the pool away from its recent equilibrium pay more, and swaps that bring it back pay less.
-- 🚧 In progress: **Per-block fee snapshot.** Fees are fixed for the whole block, so a trader cannot lower their own fee by trading back and forth within one block.
-- 🚧 In progress: **Hard bounds and liveness.** Fees are always clamped to a floor and a cap, and the fee calculation is designed never to revert a swap.
-- 🚧 In progress: **Minimal trust surface.** No oracle, no admin, no token custody, and no liquidity callbacks, so LPs can always withdraw.
+| Feature | Description | Status |
+|---|---|---|
+| Project scaffolding | Foundry project built on the v4 template, with compiler settings pinned so the CREATE2-mined hook address is reproducible. The 8 baseline template tests pass. | ✅ Done |
+| Dynamic fee computation | Each block has two fees, one for price-up swaps and one for price-down swaps, applied per swap through v4's `OVERRIDE_FEE_FLAG`. | 🚧 In progress (spec drafted, code not started) |
+| Inventory skew | Swaps that push the pool away from its recent equilibrium (an EMA of its own tick) pay more, and swaps that bring it back pay less. | 🚧 In progress (spec drafted, code not started) |
+| Volatility estimation | On-chain EWMA of realized volatility from the pool's own ticks, updated once per block, with no oracle. | 🚧 In progress (spec drafted, code not started) |
+| Fee bounds protection | Every fee is clamped to a floor and a cap (default 0.01%–1%), and the fee calculation is designed never to revert a swap. | 🚧 In progress (spec drafted, code not started) |
+| Per-block fee snapshot | Fees are fixed for the whole block, so trading back and forth within a block cannot lower your own fee. | 🚧 In progress (spec drafted, code not started) |
+| Test suite | Unit, fuzz (≥ 1,000 runs) and gas-snapshot tests for the hook. | 📋 Planned |
+| Comparison simulation | A deterministic scenario that runs identical order flow through StoikovHook and through static-fee pools, including a fee-matched baseline, and reports LP value, fee income and arbitrage profit. | 📋 Planned |
+| Sepolia deployment | Hook deployed at a mined address with flags `0x1080`, source verified, and a demo pool with swaps in both directions. | 📋 Planned |
+
+## Non-Goals
+
+What StoikovHook deliberately does **not** do:
+
+- **No price oracle and no keeper.** The hook only reads the pool's own on-chain state. There are no Chainlink or Pyth feeds and no off-chain bot pushing updates.
+- **No trading frontend.** You interact through scripts and existing v4 routers. A read-only fee dashboard is at most a stretch idea, not a trading UI.
+- **No custom curve and no token custody.** The hook never changes swap amounts (no return-delta flags), never holds tokens and never runs on liquidity add/remove.
+- **No admin, governance or upgradeability.** Parameters are fixed at deployment; a different parameter set means a new hook and a new pool.
+- **Not a full LVR solution.** The aim is to shrink the share of LVR that arbitrageurs capture, not to eliminate it. This is not an MEV auction, a batch auction or an oracle-priced AMM.
+- **No mainnet deployment and no production calibration.** The hook runs on Sepolia only, is unaudited, and its default parameters are placeholders until calibrated.
 
 ## How It Works
 
