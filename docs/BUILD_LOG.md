@@ -175,3 +175,19 @@ ETHGlobal Tokyo 2026 — 从 2026-09-25 21:00 JST 开赛
 **下一步**：把横幅图 `docs/ethglobal-tokyo-2026.png` 放进 README 顶部。
 
 ---
+
+## [2026-09-25 21:38 JST] README 顶部横幅
+
+**目标**：把 `docs/ethglobal-tokyo-2026.png` 作为横幅放在 README 标题之前。
+
+**结果**：
+- 图片：PNG，1920×1080，8-bit RGB，无 alpha 通道，347,188 字节（< 1 MB，不需要压缩）
+- `git check-ignore -v` 没有输出（exit 1），说明图片不会被忽略
+- README 第 1–3 行插入 `<p align="center"><img src="docs/ethglobal-tokyo-2026.png" … width="100%"></p>`，使用相对路径
+- 目视确认图片内容：ETHGlobal Tokyo 活动横幅（September 25–27, 2026）
+
+**遇到的问题**：工作区里出现了未跟踪的 `.DS_Store`（macOS Finder 元数据），`.gitignore` 也有一处不是本任务做的改动（新增 `.env.dev`，这一行已被 `.env*` 覆盖）。按提交纪律只暂存本任务的文件，这两项都没有提交，交给 Tony 决定。
+
+**下一步**：推送后在浏览器确认横幅在 GitHub 上正常显示。
+
+---

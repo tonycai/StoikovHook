@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/ethglobal-tokyo-2026.png" alt="ETHGlobal Tokyo 2026" width="100%">
+</p>
+
 # StoikovHook
 
 **A Uniswap v4 hook that sets swap fees the way a professional market maker sets spreads. Fees widen with volatility and skew against the pool's inventory, which reduces the adverse-selection loss LPs take from arbitrage.**
