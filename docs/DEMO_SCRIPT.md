@@ -162,7 +162,7 @@ Open every answer with a one-sentence summary, then expand. Raise the limitation
 - What sets StoikovHook apart:
   1. **Different fees by direction**, overridden per swap instead of one stored fee.
   2. **Inventory skew**: a reservation-price shift taken from market-making theory, not just "raise the fee when volatility is high".
-  3. **No external dependencies**: only the pool's own tick and the block timestamp. No oracle, no keeper.
+  3. **No external dependencies**: only the pool's own tick, the block number and the block timestamp. No oracle, no keeper.
   4. **Per-block snapshot**: rules out same-block manipulation by design.
   5. **One storage slot of state** and no admin.
 - The implementation will build on OpenZeppelin uniswap-hooks' `BaseOverrideFee` (planned).

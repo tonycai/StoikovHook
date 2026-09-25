@@ -209,3 +209,25 @@ Fix: Translated in place without changing any facts, timestamps or numbers. This
 **Next**: Record the spec review decisions in `specs/01-design.md` §7, then start the hook skeleton.
 
 ---
+
+## [2026-09-25 21:46 JST] Record the spec review decisions
+
+**Goal**: Record Tony's review decisions in `specs/01-design.md` §7 and apply them consistently across the spec.
+
+**Result**:
+- Spec status changed to "Approved 2026-09-25". §7 is now a decisions table:
+  1. Parameter defaults: adopt the placeholders ($ = 0.05%, α = 1, β = 0.5, bounds 0.01%–1%) and retune after simulation.
+  2. No σ-independent skew term.
+  3. The fee-matched static pool is the baseline for every claim; 0.05% and 0.30% are context only.
+  4. Windows are keyed by `block.number`, not `block.timestamp`.
+  5. Keep the stored fallback fee of $ in `afterInitialize`.
+- Decision 4 applied throughout: the window definition (§2.3), the recursions and pseudocode (§2.4), the inputs table (§2.5), the state layout (§3.1: new `bLast` `uint40` field, 248 bits total, still one slot), the update schedule (§3.3), the liveness bounds (§5.2) and the manipulation notes (§5.4). M3 now states that claims are made only against the fee-matched baseline.
+- README sequence diagram: alt branches renamed to "first swap in this block" / "later swap in the same block". Both diagrams re-rendered with mermaid-cli.
+- The spec's math re-validated with MathJax 3: 210 expressions, 0 errors.
+
+**Issues**: Switching the window key to `block.number` removes the guarantee $\Delta t \ge 1$. On chains where consecutive blocks share a timestamp, $\Delta t = 0$, and the variance update would add $\Delta^2/\tau_\sigma$ with no decay. Repeated same-timestamp blocks could then push $ above the ^2$ bound that the overflow argument relies on.
+Fix: Floor the elapsed time at 1 s ($\Delta t = \max(\text{now} - t_\text{last}, 1)$). Both updates stay weighted averages, so  \le \max(V_0, C^2)$ still holds. Documented in §2.4, §3.1 and §5.2.
+
+**Next**: Ignore local files, correct the CREATE2 guidance in `CLAUDE.md`, then build the hook skeleton.
+
+---

@@ -78,10 +78,10 @@ sequenceDiagram
     PM->>P: checkPoolInitialized()
     rect rgba(255, 196, 0, 0.18)
         PM->>H: beforeSwap(sender, key, params, hookData)
-        alt first swap in this block timestamp
+        alt first swap in this block
             H->>PM: extsload(slot0) returns current tick
             Note over H: update volatility (EWMA) and reference tick (EMA)<br/>compute feeUp and feeDown, cache in one slot
-        else later swap in the same timestamp
+        else later swap in the same block
             Note over H: read cached feeUp and feeDown (one SLOAD)
         end
         H-->>PM: (selector, ZERO_DELTA, fee + OVERRIDE_FEE_FLAG)

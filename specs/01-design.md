@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | **Draft — awaiting review.** Implementation starts only after sign-off. |
+| Status | **Approved 2026-09-25.** Review decisions are recorded in §7. |
 | Scope | Design only. This document contains no implementation code. |
 | Target | Uniswap v4 (v4-core as pinned by `lib/uniswap-hooks` v1.1.0, `e59fe72`), Solidity 0.8.30, Sepolia |
 
@@ -18,8 +18,8 @@ Code references use `file:line` against the pinned dependencies, with these pref
 
 - In each block, the pool posts **two** fees: $f_\uparrow$ for swaps that push the price up (`zeroForOne = false`) and $f_\downarrow$ for swaps that push it down (`zeroForOne = true`).
 - Fee = base + **volatility premium** (applies to both sides) ± **inventory skew** (applies to one side). The structure follows the stationary Avellaneda–Stoikov / Guéant–Lehalle–Fernandez-Tapia quotes.
-- The only inputs are the pool's own `slot0.tick` and `block.timestamp`. No oracle, no liquidity reads, no caller-supplied data.
-- State is one storage slot per pool. It is recomputed at most once per block timestamp, and subsequent swaps in that block read the cached fees.
+- The only inputs are the pool's own `slot0.tick`, `block.number` and `block.timestamp`. No oracle, no liquidity reads, no caller-supplied data.
+- State is one storage slot per pool. It is recomputed at most once per block, and subsequent swaps in that block read the cached fees.
 - Callbacks are `afterInitialize` and `beforeSwap`, so the hook address flags are `0x1080`. The fee is returned per swap with `OVERRIDE_FEE_FLAG`.
 
 ---
@@ -77,7 +77,7 @@ The equilibrium reference $R$ is an EMA of the pool's **own** tick with time con
 
 ### 2.3 Formula
 
-A **window** is the set of swaps that share a `block.timestamp`. At the first swap of a window, the hook reads the window-open tick $\bar t$, updates its estimators $(V, R)$ and computes two fees. Every swap in that window then pays one of those two fees.
+A **window** is the set of swaps in one block (keyed by `block.number`). At the first swap of a window, the hook reads the window-open tick $\bar t$, updates its estimators $(V, R)$ and computes two fees. Every swap in that window then pays one of those two fees.
 
 ```math
 \sigma_h = 100\,\sqrt{h\,V}\quad\text{[pips]}, \qquad
@@ -101,7 +101,7 @@ Properties of the model:
 
 ### 2.4 Estimators
 
-At window open ($\text{now} > t_\text{last}$), with $\Delta t = \text{now} - t_\text{last} \ge 1$:
+At window open (`block.number` $> b_\text{last}$), with elapsed time $\Delta t = \max(\text{now} - t_\text{last},\ 1)$ seconds:
 
 ```math
 \Delta = \operatorname{clamp}\big(\bar t - \text{tick}_\text{last},\,-C,\,C\big)
@@ -114,6 +114,7 @@ R \leftarrow \frac{\tau_R R + \Delta t\cdot\bar t}{\tau_R + \Delta t}
 
 - These are time-aware EWMAs with weight $a = \Delta t/(\tau + \Delta t)$. That weight is a first-order approximation of $1 - e^{-\Delta t/\tau}$, so no `exp` is needed. It stays in $[0,1)$, matches the exponential for $\Delta t \ll \tau$, and decays *more slowly* than exponential over one long idle gap. That makes fees stay high longer after a shock when nobody trades, which is the conservative direction.
 - $V$ estimates **variance per second** in ticks²/s. If each step carries $\Delta^2 = v\,\Delta t$, the fixed point of the recursion is $V = v$. Winsorizing at $\pm C$ bounds how much one observation can move the estimate.
+- **Why $\Delta t$ is floored at 1 s.** Windows are keyed by block number, and on chains where consecutive blocks can share a timestamp the raw elapsed time can be 0. With $\Delta t = 0$, the $V$ update would add $\Delta^2/\tau_\sigma$ with no decay, so repeated same-timestamp blocks could push $V$ above $C^2$. With the floor, both updates remain weighted averages, which preserves the bound $V \le \max(V_0, C^2)$ (§3.1).
 - $\Delta$ is measured between *window-open* ticks, so $V$ is a close-to-close estimator over active windows. Moves that revert inside a window are not seen. This is deliberate; see §5.4.
 - $\hat q$ uses $R$ **after** the update. After a long idle gap, $R \to \bar t$, so a stale reference cannot produce a large spurious skew.
 
@@ -121,9 +122,9 @@ Pseudocode for the whole `beforeSwap` path (design-level, not implementation):
 
 ```
 S = state[poolId]
-if block.timestamp > S.tLast:                        # window open, once per timestamp
+if block.number > S.bLast:                           # window open, once per block
     t̄  = getSlot0(poolId).tick
-    Δt = block.timestamp − S.tLast
+    Δt = max(block.timestamp − S.tLast, 1)            # blocks may share a timestamp
     Δ  = clamp(t̄ − S.tickLast, −C, C)
     S.V = (τσ·S.V + Δ²) / (τσ + Δt)
     S.R = (τR·S.R + Δt·t̄) / (τR + Δt)
@@ -131,7 +132,7 @@ if block.timestamp > S.tLast:                        # window open, once per tim
     sv  = isqrt(S.V)
     S.feeUp   = clamp(f0 + sv·(Kσ + Kq·d), fmin, fmax)
     S.feeDown = clamp(f0 + sv·(Kσ − Kq·d), fmin, fmax)
-    S.tLast, S.tickLast = block.timestamp, t̄
+    S.bLast, S.tLast, S.tickLast = block.number, block.timestamp, t̄
     emit FeeWindowUpdated(poolId, t̄, S.R, sv, S.feeUp, S.feeDown)
 fee = params.zeroForOne ? S.feeDown : S.feeUp
 return (selector, ZERO_DELTA, fee | OVERRIDE_FEE_FLAG)
@@ -147,7 +148,7 @@ With $K_\sigma = 100\,\alpha\sqrt h$ and $K_q = 100\,\beta\sqrt h / Q$ precomput
 | $\alpha, \beta, h, Q$ | immutable, folded into $K_\sigma, K_q$ | constructor (precomputed off-chain) |
 | $\tau_\sigma, \tau_R, C, V_0$ | immutable | constructor |
 | $\bar t$ (window-open tick) | per window | `StateLibrary.getSlot0` via `extsload` (`v4-core/libraries/StateLibrary.sol:40`) |
-| $\Delta t$ | per window | `block.timestamp` − stored `tLast` |
+| $\Delta t$ | per window | `max(block.timestamp − tLast, 1)` |
 | $V, R$ | per window | hook storage, recursions in §2.4 |
 | $\sqrt V$ | per window | integer square root |
 | $f_\uparrow, f_\downarrow$ | per window, cached | computed at window open |
@@ -200,18 +201,19 @@ After a one-window 10% move, $V \approx 3.2\times10^3$ ticks²/s and both sides 
 
 | Field | Type | Meaning | Bounds / precision |
 |---|---|---|---|
-| `tLast` | `uint32` | timestamp of the last window open | valid until 2106 |
+| `bLast` | `uint40` | block number of the last window open (the window key) | far beyond any chain's block height |
+| `tLast` | `uint32` | timestamp of the last window open (for $\Delta t$) | valid until 2106 |
 | `tickLast` | `int24` | window-open tick of the last observation | $[-887272, 887272]$ (`v4-core/libraries/TickMath.sol:20,23`) |
 | `refTick` | `int40` | EMA reference $R$, fixed point with 16 fractional bits | $\lvert R\rvert \le 887272\cdot2^{16} < 2^{39}$ |
 | `variance` | `uint64` | EWMA variance $V$, ticks²/s scaled by $10^{12}$ | $V \le \max(V_0, C^2) = 10^6 \Rightarrow < 2^{64}$ |
 | `feeUp` | `uint24` | cached $f_\uparrow$ for the current window | $[f_{\min}, f_{\max}]$ |
 | `feeDown` | `uint24` | cached $f_\downarrow$ for the current window | $[f_{\min}, f_{\max}]$ |
 
-Total: 208 bits, so one slot.
+Total: 248 bits, so one slot.
 
 Precision matters for both estimators. With $\tau_R = 900$ and $\Delta t = 1$, an integer reference would move by $\lfloor (\bar t - R)/901 \rfloor$, which is zero for any displacement under 901 ticks, so $R$ would never move. 16 fractional bits give a resolution of about $1.5\times10^{-5}$ tick. The $10^{12}$ scale on $V$ serves the same purpose for the $\Delta^2/(\tau_\sigma+\Delta t)$ increment.
 
-Invariant: $V \le \max(V_0, C^2)$. The update is a weighted average of $V$ and $\Delta^2/\Delta t \le C^2$, so it cannot leave that bound (§5.2).
+Invariant: $V \le \max(V_0, C^2)$. The update is a weighted average of $V$ and $\Delta^2/\Delta t \le C^2$ (using $\Delta t \ge 1$ from the floor in §2.4), so it cannot leave that bound (§5.2).
 
 ### 3.2 Global (immutable)
 
@@ -221,14 +223,14 @@ Invariant: $V \le \max(V_0, C^2)$. The update is a weighted average of $V$ and $
 
 | Event | State written |
 |---|---|
-| `afterInitialize` | all fields: `tLast = now`, `tickLast = tick`, $R$ = tick, $V = V_0$, fees from $V_0$ with $\hat q = 0$ |
-| `beforeSwap`, first swap with `block.timestamp > tLast` | all fields (window open) |
-| `beforeSwap`, later swaps in the same timestamp | none (read-only) |
+| `afterInitialize` | all fields: `bLast = block.number`, `tLast = now`, `tickLast = tick`, $R$ = tick, $V = V_0$, fees from $V_0$ with $\hat q = 0$ |
+| `beforeSwap`, first swap with `block.number > bLast` | all fields (window open) |
+| `beforeSwap`, later swaps in the same block | none (read-only) |
 | add/remove liquidity, donate | none (the hook is not called) |
 
 `afterSwap` is not needed. Only swaps change the tick; liquidity changes and donations do not. The `slot0.tick` read at the next window open is therefore the closing tick of the last active window, so the hook sees every close without running after every swap.
 
-The window key is `block.timestamp` rather than `block.number`. On chains where several blocks share a timestamp, those blocks form one window, which guarantees $\Delta t \ge 1$.
+The window key is `block.number` (review decision, §7). Block producers can nudge timestamps, while a block-number key guarantees exactly one fee pair per block. Elapsed time for the estimators still comes from `block.timestamp`, floored at 1 s (§2.4).
 
 ---
 
@@ -255,7 +257,7 @@ The hook address therefore must have low 14 bits equal to `AFTER_INITIALIZE | BE
 
 ### 4.2 `beforeSwap(sender, key, params, hookData)`
 
-1. If this is the first swap of a new timestamp, open a window (§2.4) and emit `FeeWindowUpdated`.
+1. If this is the first swap of a new block, open a window (§2.4) and emit `FeeWindowUpdated`.
 2. Select `params.zeroForOne ? feeDown : feeUp`.
 3. Return `(selector, ZERO_DELTA, fee | OVERRIDE_FEE_FLAG)`. `OVERRIDE_FEE_FLAG` is `0x400000` (`LPFeeLibrary.sol:19`). `PoolManager` strips the flag and validates `fee ≤ MAX_LP_FEE = 1_000_000` (`Pool.sol:303-305`, `LPFeeLibrary.sol:25`). A protocol fee, if enabled, composes on top (`Pool.sol:307`).
 
@@ -287,7 +289,7 @@ A revert inside `beforeSwap` blocks every swap in the pool. The design goal is t
 
 - tick $\in [-887272, 887272]$ (< $2^{20}$); $\Delta$ is winsorized to $\pm C$ before squaring.
 - $V \le \max(V_0, C^2)$ is invariant (§3.1), so $\sqrt V \le C$ and $\sigma_h$ and the pre-clamp fee stay far below $2^{64}$.
-- $\Delta t$ is only computed when `block.timestamp > tLast`, so $\Delta t \ge 1$. Denominators $\tau + \Delta t \ge 2$.
+- $\Delta t$ is floored at 1 s (§2.4), so $\Delta t \ge 1$ even when consecutive blocks share a timestamp. Denominators $\tau + \Delta t \ge 2$.
 - All intermediates are computed in `int256`/`uint256`. The only narrowing casts are `feeUp`/`feeDown` (after the clamp), `refTick` (bounded above), `variance` (invariant) and `tickLast` (a valid tick).
 - Division rounds toward zero. The fractional `refTick` avoids a stuck reference, and fee rounding error is at most 1 pip.
 - Worst-case failure mode: swaps pause. LP funds are always withdrawable because no liquidity callbacks are registered.
@@ -301,7 +303,7 @@ A revert inside `beforeSwap` blocks every swap in the pool. The design goal is t
 
 ### 5.4 Economic manipulation
 
-- **Window snapshot.** Within a timestamp, every trader faces a fixed fee pair. Without the snapshot, a single transaction could sell token0 at the discounted rebalancing rate to push the tick past $R$, then buy a large size at the new "rebalancing" discount. With the snapshot, the second leg still pays the $f_\uparrow$ computed from the window-open state.
+- **Window snapshot.** Within a block, every trader faces a fixed fee pair. Without the snapshot, a single transaction could sell token0 at the discounted rebalancing rate to push the tick past $R$, then buy a large size at the new "rebalancing" discount. With the snapshot, the second leg still pays the $f_\uparrow$ computed from the window-open state.
 - **Cross-window displacement.** Someone controlling the last transaction of block N and the first of block N+1 (for example a builder) can move $\bar t$. That costs fees plus exposure to other arbitrageurs across the block boundary, and the gain is at most $2\beta\sigma_h$ times the notional of the next trade. This is a documented residual risk. The "cross $R$, then trade big" variant is closed by S1.
 - **Volatility inflation** requires actually moving the close-to-close price, which costs fees and arbitrage losses. Its only effect is higher LP fees, capped at $f_{\max}$, and it decays with $\tau_\sigma$. One observation can add at most $C^2/(\tau_\sigma + 1)$ to $V$. **Volatility deflation** is impossible through trading; $V$ only falls with time.
 - **Quoting.** Quoters simulate the swap including `beforeSwap`, so off-chain quotes reflect the direction-dependent fee. A window-open update inside a simulation is reverted along with it.
@@ -323,7 +325,7 @@ A revert inside `beforeSwap` blocks every swap in the pool. The design goal is t
 |---|---|
 | M1 | `StoikovHook` implementing §2–§5: `afterInitialize` + `beforeSwap`, immutable parameters, single-slot state, `FeeWindowUpdated` event |
 | M2 | Foundry unit, fuzz and gas tests (see the criteria below) |
-| M3 | Deterministic **scenario comparison**: one scripted price path (calm → jump → trend → reversal), an arbitrageur that trades each pool to the reference price whenever that is profitable net of fees, and scripted uninformed flow. Pools compared: StoikovHook vs. static 0.05%, static 0.30%, and a **fee-matched** static pool whose fee equals StoikovHook's realized volume-weighted average fee on the uninformed flow. The uninformed flow is scripted and does not react to fees, so a higher static fee always "wins" on that flow. The fee-matched baseline holds the cost to uninformed traders constant and isolates the effect of the fee's *shape*. Outputs: LP fee income, arbitrageur profit (realized LVR) and LP value marked to the reference price |
+| M3 | Deterministic **scenario comparison**: one scripted price path (calm → jump → trend → reversal), an arbitrageur that trades each pool to the reference price whenever that is profitable net of fees, and scripted uninformed flow. Pools compared: StoikovHook vs. static 0.05%, static 0.30%, and a **fee-matched** static pool whose fee equals StoikovHook's realized volume-weighted average fee on the uninformed flow. The uninformed flow is scripted and does not react to fees, so a higher static fee always "wins" on that flow. The fee-matched baseline holds the cost to uninformed traders constant and isolates the effect of the fee's *shape*. Every claim is made against the fee-matched baseline; the 0.05% and 0.30% results are context only (§7). Outputs: LP fee income, arbitrageur profit (realized LVR) and LP value marked to the reference price |
 | M4 | Deployment script: mine the address (flags taken from `getHookPermissions()`), deploy with CREATE2, initialize a dynamic-fee pool, add liquidity, run demo swaps. Runs end-to-end on anvil (Sepolia fork) and on Sepolia |
 | M5 | README repository guide with `file:line` pointers, plus deployed addresses and transaction hashes |
 
@@ -357,13 +359,17 @@ A revert inside `beforeSwap` blocks every swap in the pool. The design goal is t
 
 ---
 
-## 7. Open questions for review
+## 7. Review decisions
 
-1. Are the parameter defaults in §2.7 acceptable as placeholders until S2?
-2. Should the skew scale with $\sigma$ (the GLFT form used here), or should an additional σ-independent component keep it active in calm markets?
-3. M3 baselines: static 0.05%, static 0.30% and a fee-matched static pool (the primary comparison). Keep all three?
-4. Window key: `block.timestamp` (proposed) or `block.number`?
-5. Setting the stored LP fee to $f_0$ in `afterInitialize` (§4.1): keep it?
+Reviewed and approved by Tony on 2026-09-25.
+
+| # | Question | Decision | Rationale |
+|---|---|---|---|
+| 1 | Parameter defaults (§2.7) | Adopt the placeholders: $f_0$ = 0.05%, $\alpha$ = 1, $\beta$ = 0.5, bounds 0.01%–1% | Retune once simulation data exists (S2). |
+| 2 | Add a σ-independent skew term? | No | Keep the MVP formula minimal. The skew stays proportional to σ, as in the GLFT form. |
+| 3 | M3 baselines | The fee-matched static pool is the baseline for every claim | It is the only comparison that holds the cost to uninformed traders constant. The 0.05% and 0.30% pools are reported for context only. |
+| 4 | Window key | `block.number`, not `block.timestamp` | Block producers can nudge timestamps; a block-number key gives exactly one fee pair per block. Consequence: $\Delta t$ can be 0 when blocks share a timestamp, so it is floored at 1 s (§2.4). |
+| 5 | Stored fallback fee in `afterInitialize` (§4.1) | Keep | Defense in depth: if an override were ever missing, swaps fall back to $f_0$ instead of 0. |
 
 ## References
 
