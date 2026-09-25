@@ -194,12 +194,18 @@ anvil --fork-url "$SEPOLIA_RPC_URL" --block-time 1
 
 ## Built With AI
 
-This project is built with AI assistance (Claude Code), in a spec-first workflow:
+This project was built with Claude Code CLI as the execution layer, under a spec-driven workflow. Everything AI-assisted is traceable in this repository:
 
-- [`specs/`](specs/): design specifications, written before any implementation and reviewed by a human before coding starts.
-- [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md): timestamped development log, including the problems we hit and how we solved them.
-- [`AI_USAGE.md`](AI_USAGE.md): disclosure of how AI was used (🚧 being filled in).
-- [`CLAUDE.md`](CLAUDE.md): the rules the AI assistant works under in this repository.
+| Artifact | Location | What it shows |
+|---|---|---|
+| Design spec | [`specs/01-design.md`](specs/01-design.md) | The fee model and interface decisions, written and reviewed before implementation |
+| AI collaboration rules | [`CLAUDE.md`](CLAUDE.md) | Constraints the agent operates under, including safety rules for fee logic and key handling |
+| Build log | [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) | Timestamped record of every task: goal, outcome, problems hit, resolution |
+| Commit history | `git log` | Small incremental commits, each tied to a working state |
+
+Human review gates: every change to fee computation, hook permissions or anything that touches funds is reviewed diff by diff before it is merged. The concept and the engineering constraints came from the author. The agent drafted the design spec, including the proposals to use an oracle-free reference price and per-block fee caching. The author reviewed and approved those proposals and made the final decisions recorded in spec §7: block-number fee windows, the fee-matched comparison baseline and the parameter defaults.
+
+The full breakdown of what the agent did and what the author did is in [`AI_USAGE.md`](AI_USAGE.md).
 
 ## Author
 

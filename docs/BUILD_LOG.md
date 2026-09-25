@@ -257,3 +257,19 @@ Fix: Floor the elapsed time at 1 s ($\Delta t = \max(\text{now} - t_\text{last},
 **Next**: Expand the AI usage disclosure (README "Built With AI" and `AI_USAGE.md`).
 
 ---
+
+## [2026-09-25 21:55 JST] Expand the AI usage disclosure
+
+**Goal**: Rewrite the README "Built With AI" section and write the full `AI_USAGE.md`, stating honestly what the agent did and what the author did.
+
+**Result**:
+- README "Built With AI": the artifact table (design spec, `CLAUDE.md`, build log, commit history), the human review gates, and a link to `AI_USAGE.md`.
+- `AI_USAGE.md` has 5 sections: tools used; what the AI did (scaffolding, spec drafting, implementation to spec, tests and scripts, docs, verification tooling); what the human did (concept, engineering constraints, the spec §7 decisions, review gates); where the prompts live; and verification.
+
+**Issues**: The requested README wording said the oracle-free reference price and per-block fee caching "were made by the author, not the agent". This repository's own record (this log's "Design spec" entry and spec §2.6, §5.4) shows the agent proposed both in the spec it drafted, and the author reviewed and approved them.
+Fix: Worded it as the record shows. The agent proposed; the author approved. The author's own decisions are listed explicitly: the concept, the engineering constraints, block-number windows instead of the proposed timestamps, the fee-matched baseline, no σ-independent skew term, and the parameter defaults. Flagged to Tony for confirmation.
+To keep the "reviewed diff by diff before it is merged" statement true, the hook skeleton (fee override, hook permissions, swap-script receiver) is held uncommitted until Tony reviews its diff.
+
+**Next**: Tony reviews the hook skeleton diff; after approval, commit and push it following the feature completion checklist.
+
+---
