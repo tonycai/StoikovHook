@@ -203,7 +203,17 @@ This project was built with Claude Code CLI as the execution layer, under a spec
 | Build log | [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) | Timestamped record of every task: goal, outcome, problems hit, resolution |
 | Commit history | `git log` | Small incremental commits, each tied to a working state |
 
-Human review gates: every change to fee computation, hook permissions or anything that touches funds is reviewed diff by diff before it is merged. The concept and the engineering constraints came from the author. The agent drafted the design spec, including the proposals to use an oracle-free reference price and per-block fee caching. The author reviewed and approved those proposals and made the final decisions recorded in spec §7: block-number fee windows, the fee-matched comparison baseline and the parameter defaults.
+Human review gates: every change to fee computation, hook permissions or anything that touches funds is reviewed diff by diff before it is merged.
+
+Decisions made by the author:
+
+- **Project concept**: applying Avellaneda–Stoikov inventory and volatility logic to Uniswap v4 dynamic fees to reduce LPs' adverse-selection loss.
+- **Engineering constraints**: pinned compiler settings for deterministic CREATE2 hook addresses, keystore-only key handling, spec-first development and small commits (see [`CLAUDE.md`](CLAUDE.md)).
+- **Block-number fee windows**, chosen over the agent's proposed timestamp windows because block producers can nudge timestamps.
+- **The fee-matched static pool** as the comparison baseline.
+- **The parameter defaults.**
+
+The agent proposed, and the author approved: the oracle-free reference price and per-block fee caching. Every spec decision is recorded in [`specs/01-design.md`](specs/01-design.md) §7.
 
 The full breakdown of what the agent did and what the author did is in [`AI_USAGE.md`](AI_USAGE.md).
 

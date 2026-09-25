@@ -273,3 +273,15 @@ To keep the "reviewed diff by diff before it is merged" statement true, the hook
 **Next**: Tony reviews the hook skeleton diff; after approval, commit and push it following the feature completion checklist.
 
 ---
+
+## [2026-09-25 22:01 JST] List the author's decisions explicitly
+
+**Goal**: Following Tony's confirmation of the "agent proposed, author approved" wording, list the author's own decisions explicitly in the README.
+
+**Result**: README "Built With AI" now has a bulleted list of the decisions made by the author (project concept, engineering constraints, block-number fee windows, the fee-matched baseline, the parameter defaults), followed by a separate line naming the agent's proposals that the author approved (the oracle-free reference price, per-block fee caching). `AI_USAGE.md` already lists the same decisions.
+
+**Issues**: None.
+
+**Next**: Commit the reviewed hook skeleton, including removing the Counter example and pointing scripts 01–03 at the StoikovHook pool.
+
+---
