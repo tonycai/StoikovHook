@@ -5,9 +5,6 @@ out/
 # Broadcast logs (all chains, including dry-runs)
 broadcast/
 
-# Docs
-docs/
-
 # Dotenv files (.env, .env.local, .env.sepolia, ...)
 .env*
 
