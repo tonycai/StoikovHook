@@ -156,3 +156,22 @@ ETHGlobal Tokyo 2026 — 从 2026-09-25 21:00 JST 开赛
 **下一步**：推送；然后设置 GitHub 仓库描述和 topics，检查 README（含 Mermaid）在 GitHub 上的渲染。
 
 ---
+
+## [2026-09-25 21:37 JST] GitHub 仓库展示信息与渲染检查
+
+**目标**：推送本地提交；设置仓库描述和 topics；确认 README（尤其是 Mermaid）在 GitHub 上渲染正常。
+
+**结果**：
+- 推送：`dfbe4cf..fd4cdeb` 共 7 个提交推到 `origin/main`；推送前确认没有跟踪 `.env*`、`cache/`、`broadcast/`、`out/`
+- 描述（93 字符）："Uniswap v4 hook using the Avellaneda-Stoikov model for dynamic fees that protect LPs from LVR"
+- Topics（9 个）：avellaneda-stoikov, defi, dynamic-fees, ethglobal, foundry, market-making, solidity, uniswap-hooks, uniswap-v4
+- README 在 GitHub 上：2 张 Mermaid 图都渲染成功（没有 "Unable to render" 报错，截图确认组件图和时序图完整、标签可读）；NOTE 提示框、4 张表格正常；页面上没有残留 ```mermaid 原文
+- `specs/01-design.md`：GitHub 识别出 199 个数学表达式；用 MathJax 3（与 GitHub 同一引擎）本地逐个编译，199/199 无错误（其中 7 个行间公式）
+
+**遇到的问题**：自动化浏览器标签页处于后台（`document.visibilityState = "hidden"`），GitHub 的 `<math-renderer>` 不会执行，截图里公式显示为原始 `$...$`。
+根因：GitHub 的公式渲染要等页面可见才触发；Mermaid 用 iframe，不受影响。
+解法：DOM 已确认 199 个表达式都被识别为数学；再用 `mathjax-full@3` 在本地逐个编译，并把错误设为抛异常，确认没有语法问题。README 本身没有公式。
+
+**下一步**：把横幅图 `docs/ethglobal-tokyo-2026.png` 放进 README 顶部。
+
+---
