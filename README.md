@@ -200,3 +200,13 @@ This project is built with AI assistance (Claude Code), in a spec-first workflow
 - [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md): timestamped development log, including the problems we hit and how we solved them.
 - [`AI_USAGE.md`](AI_USAGE.md): disclosure of how AI was used (🚧 being filled in).
 - [`CLAUDE.md`](CLAUDE.md): the rules the AI assistant works under in this repository.
+
+## Author
+
+Built solo at ETHGlobal Tokyo 2026 by Tony Cai, founder of SolanaLink Co., Ltd. (Tokyo). Tony has 20+ years in software engineering, with a background in distributed systems and market-making infrastructure.
+
+| | |
+|---|---|
+| X / Twitter | [@TonyIronTokyo](https://x.com/TonyIronTokyo) |
+| Discord | `tonyiron2025` |
+| GitHub | [@tonycai](https://github.com/tonycai) |

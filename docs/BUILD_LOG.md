@@ -245,3 +245,15 @@ Fix: Floor the elapsed time at 1 s ($\Delta t = \max(\text{now} - t_\text{last},
 **Next**: Build the hook skeleton.
 
 ---
+
+## [2026-09-25 21:54 JST] README author section
+
+**Goal**: Add an "Author" section at the end of the README, after "Built With AI".
+
+**Result**: Added one sentence on the background relevant to this project (distributed systems, market-making infrastructure) and a contact table: X/Twitter and GitHub as links, the Discord username in code format with no link, because Discord has no public profile URL.
+
+**Issues**: None.
+
+**Next**: Expand the AI usage disclosure (README "Built With AI" and `AI_USAGE.md`).
+
+---
