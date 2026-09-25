@@ -2,17 +2,14 @@
 cache/
 out/
 
-# Ignores development (and goerli) broadcast logs
-!/broadcast
-/broadcast/*/31337/
-/broadcast/*/5/
-/broadcast/**/dry-run/
+# Broadcast logs (all chains, including dry-runs)
+broadcast/
 
 # Docs
 docs/
 
-# Dotenv file
-.env
+# Dotenv files (.env, .env.local, .env.sepolia, ...)
+.env*
 
 # Node modules
 node_modules/

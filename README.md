@@ -1,3 +1,5 @@
+Built at ETHGlobal Tokyo 2026
+
 # Uniswap v4 Hook Template
 
 **A template for writing Uniswap v4 Hooks 🦄**
