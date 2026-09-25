@@ -1,185 +1,170 @@
-Built at ETHGlobal Tokyo 2026
+# StoikovHook
 
-# Uniswap v4 Hook Template
+**A Uniswap v4 hook that sets swap fees the way a professional market maker sets spreads. Fees widen with volatility and skew against the pool's inventory, which reduces the adverse-selection loss LPs take from arbitrage.**
 
-**A template for writing Uniswap v4 Hooks 🦄**
+> Built at ETHGlobal Tokyo 2026
 
-### Get Started
+> [!NOTE]
+> **Project status: design phase.** The fee model is fully specified in [`specs/01-design.md`](specs/01-design.md) (draft, under review). The hook itself is not implemented yet. Every item marked 🚧 In progress is **not** done.
 
-This template provides a starting point for writing Uniswap v4 Hooks, including a simple example and preconfigured test environment. Start by creating a new repository using the "Use this template" button at the top right of this page. Alternatively you can also click this link:
+## Problem
 
-[![Use this Template](https://img.shields.io/badge/Use%20this%20Template-101010?style=for-the-badge&logo=github)](https://github.com/uniswapfoundation/v4-template/generate)
+A Uniswap pool is a market maker that never updates its quote. Its fee (its half-spread) is fixed when the pool is created, and its price only moves when someone trades against it. Between blocks, the price on centralized exchanges keeps moving. Once the gap exceeds the fee, an arbitrageur trades the pool back into line and the LPs fill that trade at a stale price. This loss is known as *loss-versus-rebalancing* (LVR). It grows with the square of volatility, and a static fee is mis-sized in both directions: too expensive for ordinary traders in calm markets, and far too cheap for arbitrageurs when volatility spikes.
 
-1. The example hook [Counter.sol](src/Counter.sol) demonstrates the `beforeSwap()` and `afterSwap()` hooks
-2. The test template [Counter.t.sol](test/Counter.t.sol) preconfigures the v4 pool manager, test tokens, and test liquidity.
+A professional market maker on a centralized exchange does not quote passively. In the Avellaneda–Stoikov model, the dealer widens the spread when volatility rises and shifts both quotes against its inventory. That makes trades which rebalance its position cheap and trades which worsen it expensive. Uniswap LPs have neither tool.
 
-<details>
-<summary>Updating to v4-template:latest</summary>
+## Solution
 
-This template is actively maintained -- you can update the v4 dependencies, scripts, and helpers:
+StoikovHook gives a v4 pool both tools. For every block it computes two fees from the pool's own on-chain state: one for swaps that push the price up and one for swaps that push it down. A volatility premium raises both fees when the market is moving. An inventory skew charges more to swaps that push the pool further from its recent equilibrium and less to swaps that bring it back. The fee is applied per swap through v4's dynamic-fee override. There is no oracle, no admin key, and the hook never takes custody of tokens.
+
+## Architecture
+
+> 🚧 In progress. The diagrams show the design in [`specs/01-design.md`](specs/01-design.md); the implementation will follow it.
+
+**(a) Components.** Solid arrows are calls; dotted arrows are return values and read-only access.
+
+```mermaid
+flowchart TB
+    Swapper["Swapper<br/>(via router)"]
+    LP["LP<br/>(via PositionManager)"]
+    subgraph core["Uniswap v4 core"]
+        PM["PoolManager<br/>(singleton)"]
+        Pool[("Pool state<br/>slot0: sqrtPrice, tick, lpFee")]
+        PM -->|"Pool.swap() with<br/>lpFeeOverride"| Pool
+    end
+    subgraph ext["Hook contract"]
+        Hook["StoikovHook"]
+        HS[("Per-pool state, 1 slot<br/>variance, ref tick,<br/>feeUp, feeDown")]
+        Hook <-->|"read / write"| HS
+    end
+    Swapper -->|"swap()"| PM
+    LP -->|"modifyLiquidity()<br/>hook is NOT called"| PM
+    PM -->|"afterInitialize()<br/>beforeSwap()"| Hook
+    Hook -.->|"returns fee +<br/>OVERRIDE_FEE_FLAG"| PM
+    Hook -.->|"extsload:<br/>read slot0.tick"| Pool
+```
+
+**(b) Lifecycle of one swap.** The highlighted block is where StoikovHook runs. It is called in step 6, reads the pool's tick in step 7 (first swap of a block only) and returns the fee override in step 8.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Swapper
+    participant R as Router
+    participant PM as PoolManager
+    participant H as StoikovHook
+    participant P as Pool (inside PoolManager)
+
+    User->>R: swap(zeroForOne, amountIn)
+    R->>PM: unlock(data)
+    PM->>R: unlockCallback(data)
+    R->>PM: swap(key, params, hookData)
+    PM->>P: checkPoolInitialized()
+    rect rgba(255, 196, 0, 0.18)
+        PM->>H: beforeSwap(sender, key, params, hookData)
+        alt first swap in this block timestamp
+            H->>PM: extsload(slot0) returns current tick
+            Note over H: update volatility (EWMA) and reference tick (EMA)<br/>compute feeUp and feeDown, cache in one slot
+        else later swap in the same timestamp
+            Note over H: read cached feeUp and feeDown (one SLOAD)
+        end
+        H-->>PM: (selector, ZERO_DELTA, fee + OVERRIDE_FEE_FLAG)
+    end
+    PM->>P: swap with lpFeeOverride = fee
+    Note over PM,P: strip override flag, check fee is at most MAX_LP_FEE,<br/>charge the fee on the input amount
+    PM-->>R: BalanceDelta
+    R->>PM: settle() input and take() output
+    PM-->>User: output tokens
+```
+
+## Core Features
+
+- 🚧 In progress: **Direction-aware dynamic fee.** Each block has two fees, one for price-up swaps and one for price-down swaps, applied per swap through v4's `OVERRIDE_FEE_FLAG`.
+- 🚧 In progress: **Volatility premium.** Both fees rise with an on-chain EWMA estimate of realized volatility, computed from the pool's own ticks.
+- 🚧 In progress: **Inventory skew.** Swaps that push the pool away from its recent equilibrium pay more, and swaps that bring it back pay less.
+- 🚧 In progress: **Per-block fee snapshot.** Fees are fixed for the whole block, so a trader cannot lower their own fee by trading back and forth within one block.
+- 🚧 In progress: **Hard bounds and liveness.** Fees are always clamped to a floor and a cap, and the fee calculation is designed never to revert a swap.
+- 🚧 In progress: **Minimal trust surface.** No oracle, no admin, no token custody, and no liquidity callbacks, so LPs can always withdraw.
+
+## How It Works
+
+> 🚧 In progress. This describes the design; parameter values are placeholders until calibration.
+
+Picture the pool as a currency-exchange booth that posts two prices, one for buying ETH and one for selling it.
+
+1. **Calm market: small fee.** When prices barely move, both directions pay a low base fee, so ordinary traders are not overcharged.
+2. **Choppy market: both fees rise.** Fast-moving prices are when arbitrage bots profit at LPs' expense, so the booth charges a higher premium on both sides, much as insurance costs more in storm season. The premium follows how much the pool's own price has been moving recently.
+3. **Unbalanced booth: prices tilt.** If the booth has recently sold a lot of ETH, its price has risen above its recent average. It then charges more to anyone buying even more ETH and gives a discount to anyone selling ETH back. Trades that help the pool recover its balance are cheaper; trades that push it further out are more expensive.
+4. **One price list per block.** Both fees are set at the first trade of each block and stay fixed until the next block. Trading back and forth within a block therefore cannot move your own fee.
+5. **Always a floor and a cap.** Fees never go below a minimum or above a maximum (defaults 0.01% and 1%), so the pool stays usable even in a crash.
+
+The math behind each step, and why it follows the Avellaneda–Stoikov model, is in [`specs/01-design.md`](specs/01-design.md) §2.
+
+## Tech Stack
+
+- **Solidity** 0.8.30. Compiler settings are pinned in `foundry.toml` because the CREATE2-mined hook address depends on the exact bytecode.
+- **Foundry** (forge, anvil, cast) for building, testing, the local Sepolia fork and deployment.
+- **Uniswap v4-core / v4-periphery**, pulled in through OpenZeppelin **uniswap-hooks** v1.1.0 (hook base contracts).
+- **hookmate** for v4 deployment artifacts and address constants.
+- **Sepolia** as the target testnet.
+
+## Repository Guide
+
+> 🚧 In progress. File paths and line numbers will be filled in as each part is implemented, in the format `src/StoikovHook.sol:L120-L145`.
+
+| What to verify | Location | Status |
+|---|---|---|
+| Hook permissions (`afterInitialize` + `beforeSwap`, address flags `0x1080`) | `src/StoikovHook.sol:L?` | 🚧 In progress |
+| Dynamic-fee guard and state seeding (`afterInitialize`) | `src/StoikovHook.sol:L?` | 🚧 In progress |
+| Per-swap fee override returned from `beforeSwap` | `src/StoikovHook.sol:L?` | 🚧 In progress |
+| Fee formula: volatility premium, inventory skew, clamps | `src/StoikovHook.sol:L?` | 🚧 In progress |
+| Estimator update at window open (EWMA volatility, EMA reference) | `src/StoikovHook.sol:L?` | 🚧 In progress |
+| Address mining and CREATE2 deployment | `script/…` | 🚧 In progress |
+| Unit, fuzz and scenario tests | `test/…` | 🚧 In progress |
+| Design specification | [`specs/01-design.md`](specs/01-design.md) | Draft, under review |
+
+## Getting Started
+
+Prerequisites: [Foundry](https://book.getfoundry.sh/getting-started/installation) and git.
 
 ```bash
-git remote add template https://github.com/uniswapfoundation/v4-template
-git fetch template
-git merge template/main <BRANCH> --allow-unrelated-histories
-```
-
-</details>
-
-### Requirements
-
-This template is designed to work with Foundry (stable). If you are using Foundry Nightly, you may encounter compatibility issues. You can update your Foundry installation to the latest stable version by running:
-
-```
-foundryup
-```
-
-To set up the project, run the following commands in your terminal to install dependencies and run the tests:
-
-```
-forge install
+git clone --recurse-submodules https://github.com/tonycai/StoikovHook.git
+cd StoikovHook
+forge install   # only needed if you cloned without --recurse-submodules
+forge build
 forge test
 ```
 
-### Local Development
+`forge test` currently runs the v4-template baseline suite (8 tests). StoikovHook's own tests are 🚧 in progress.
 
-Other than writing unit tests (recommended!), you can only deploy & test hooks on [anvil](https://book.getfoundry.sh/anvil/) locally. Scripts are available in the `script/` directory, which can be used to deploy hooks, create pools, provide liquidity and swap tokens. The scripts support both local `anvil` environment as well as running them directly on a production network.
-
-### Executing locally with using **Anvil**:
-
-1. Start Anvil (or fork a specific chain using anvil):
+Local Sepolia fork, for the deployment flow:
 
 ```bash
-anvil
+# Put your own Sepolia RPC endpoint in SEPOLIA_RPC_URL. Never commit it.
+# --block-time 1 keeps block timestamps moving while anvil is idle.
+anvil --fork-url "$SEPOLIA_RPC_URL" --block-time 1
 ```
 
-or
+🚧 In progress: the deployment script (mine the hook address, deploy with CREATE2, create the pool, add liquidity, run the demo swaps). Keys will only be used through a Foundry keystore (`--account`).
 
-```bash
-anvil --fork-url <YOUR_RPC_URL>
-```
+## Deployed Contracts
 
-2. Execute scripts:
+🚧 In progress. Nothing is deployed yet.
 
-```bash
-forge script script/00_DeployHook.s.sol \
-    --rpc-url http://localhost:8545 \
-    --private-key <PRIVATE_KEY> \
-    --broadcast
-```
+| Network | Contract | Address | Explorer |
+|---|---|---|---|
+| Sepolia (11155111) | StoikovHook | 🚧 | 🚧 |
+| Sepolia (11155111) | Demo pool (PoolId) | 🚧 | 🚧 |
 
-### Using **RPC URLs** (actual transactions):
+## Demo
 
-:::info
-It is best to not store your private key even in .env or enter it directly in the command line. Instead use the `--account` flag to select your private key from your keystore.
-:::
+🚧 In progress. The video link will be added here.
 
-### Follow these steps if you have not stored your private key in the keystore:
+## Built With AI
 
-<details>
+This project is built with AI assistance (Claude Code), in a spec-first workflow:
 
-1. Add your private key to the keystore:
-
-```bash
-cast wallet import <SET_A_NAME_FOR_KEY> --interactive
-```
-
-2. You will prompted to enter your private key and set a password, fill and press enter:
-
-```
-Enter private key: <YOUR_PRIVATE_KEY>
-Enter keystore password: <SET_NEW_PASSWORD>
-```
-
-You should see this:
-
-```
-`<YOUR_WALLET_PRIVATE_KEY_NAME>` keystore was saved successfully. Address: <YOUR_WALLET_ADDRESS>
-```
-
-::: warning
-Use `history -c` to clear your command history.
-:::
-
-</details>
-
-1. Execute scripts:
-
-```bash
-forge script script/00_DeployHook.s.sol \
-    --rpc-url <YOUR_RPC_URL> \
-    --account <YOUR_WALLET_PRIVATE_KEY_NAME> \
-    --sender <YOUR_WALLET_ADDRESS> \
-    --broadcast
-```
-
-You will prompted to enter your wallet password, fill and press enter:
-
-```
-Enter keystore password: <YOUR_PASSWORD>
-```
-
-### Key Modifications to note:
-
-1. Update the `token0` and `token1` addresses in the `BaseScript.sol` file to match the tokens you want to use in the network of your choice for sepolia and mainnet deployments.
-2. Update the `token0Amount` and `token1Amount` in the `CreatePoolAndAddLiquidity.s.sol` file to match the amount of tokens you want to provide liquidity with.
-3. Update the `token0Amount` and `token1Amount` in the `AddLiquidity.s.sol` file to match the amount of tokens you want to provide liquidity with.
-4. Update the `amountIn` and `amountOutMin` in the `Swap.s.sol` file to match the amount of tokens you want to swap.
-
-### Verifying the hook contract
-
-```bash
-forge verify-contract \
-  --rpc-url <URL> \
-  --chain <CHAIN_NAME_OR_ID> \
-  # Generally etherscan
-  --verifier <Verification_Provider> \
-  # Use --etherscan-api-key <ETHERSCAN_API_KEY> if you are using etherscan
-  --verifier-api-key <Verification_Provider_API_KEY> \
-  --constructor-args <ABI_ENCODED_ARGS> \
-  --num-of-optimizations <OPTIMIZER_RUNS> \
-  <Contract_Address> \
-  <path/to/Contract.sol:ContractName>
-  --watch
-```
-
-### Troubleshooting
-
-<details>
-
-#### Permission Denied
-
-When installing dependencies with `forge install`, Github may throw a `Permission Denied` error
-
-Typically caused by missing Github SSH keys, and can be resolved by following the steps [here](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh)
-
-Or [adding the keys to your ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#adding-your-ssh-key-to-the-ssh-agent), if you have already uploaded SSH keys
-
-#### Anvil fork test failures
-
-Some versions of Foundry may limit contract code size to ~25kb, which could prevent local tests to fail. You can resolve this by setting the `code-size-limit` flag
-
-```
-anvil --code-size-limit 40000
-```
-
-#### Hook deployment failures
-
-Hook deployment failures are caused by incorrect flags or incorrect salt mining
-
-1. Verify the flags are in agreement:
-   - `getHookCalls()` returns the correct flags
-   - `flags` provided to `HookMiner.find(...)`
-2. Verify salt mining is correct:
-   - In **forge test**: the _deployer_ for: `new Hook{salt: salt}(...)` and `HookMiner.find(deployer, ...)` are the same. This will be `address(this)`. If using `vm.prank`, the deployer will be the pranking address
-   - In **forge script**: the deployer must be the CREATE2 Proxy: `0x4e59b44847b379578588920cA78FbF26c0B4956C`
-     - If anvil does not have the CREATE2 deployer, your foundry may be out of date. You can update it with `foundryup`
-
-</details>
-
-### Additional Resources
-
-- [Uniswap v4 docs](https://docs.uniswap.org/contracts/v4/overview)
-- [v4-periphery](https://github.com/uniswap/v4-periphery)
-- [v4-core](https://github.com/uniswap/v4-core)
-- [v4-by-example](https://v4-by-example.org)
+- [`specs/`](specs/): design specifications, written before any implementation and reviewed by a human before coding starts.
+- [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md): timestamped development log, including the problems we hit and how we solved them.
+- [`AI_USAGE.md`](AI_USAGE.md): disclosure of how AI was used (🚧 being filled in).
+- [`CLAUDE.md`](CLAUDE.md): the rules the AI assistant works under in this repository.

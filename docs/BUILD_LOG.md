@@ -101,3 +101,22 @@ ETHGlobal Tokyo 2026 — 从 2026-09-25 21:00 JST 开赛
 **下一步**：Tony 评审规格（§7 有 5 个待定问题）；同时写 `CLAUDE.md` 和 README 骨架。
 
 ---
+
+## [2026-09-25 21:30 JST] CLAUDE.md 与 README 骨架
+
+**目标**：写 AI 协作规范 `CLAUDE.md`，以及面向评委的 README 骨架（12 节）。
+
+**结果**：
+- `CLAUDE.md`：项目背景、技术栈、硬性约束（编译参数固定、权限与 HookMiner flags 一致、keystore、不打印 RPC URL、禁止对真实网络用 `--resume`）、已知环境问题、工作方式
+- `README.md` 全部重写，替换掉模板内容。12 节依次是：标题/定位、Problem、Solution、Architecture（2 张 Mermaid 图）、Core Features、How It Works、Tech Stack、Repository Guide（占位表）、Getting Started、Deployed Contracts（占位）、Demo（占位）、Built With AI
+- 所有未实现项都标了 "🚧 In progress"，顶部加了 "Project status: design phase" 提示框
+- Mermaid 两张图都用 mermaid-cli 11.17.0 本地渲染验证通过（组件图 flowchart、时序图 sequenceDiagram 共 12 步）
+
+**遇到的问题**：组件图初版用 `flowchart LR`，把 PoolManager 画成 subgraph，从 subgraph 边框连出去的 `beforeSwap()` 标签被节点遮住一半。
+根因：从 subgraph 边框连出的边，标签会被放在 subgraph 内侧。
+解法：改成 `flowchart TB`，PoolManager 和 Pool 作为 "Uniswap v4 core" subgraph 里的普通节点，StoikovHook 和它的状态放进另一个 subgraph。重新渲染后所有标签完整可见。
+另外，时序图消息里避开了 `;` 和 `|`（Mermaid 会把 `;` 当语句分隔符），写成 "fee + OVERRIDE_FEE_FLAG"。
+
+**下一步**：在 CLAUDE.md 里补上"功能完成后的固定流程"。
+
+---
