@@ -217,6 +217,15 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 - **Solady** v0.1.26 `FixedPointMathLib` for the fee math: integer square root, WAD multiplication and clamps.
 - **Sepolia** as the target testnet.
 
+## Uniswap Foundation Prize Eligibility
+
+A quick check for judges of the Uniswap Foundation prize:
+
+- Public, open-source GitHub repository: [github.com/tonycai/StoikovHook](https://github.com/tonycai/StoikovHook), MIT License ([`LICENSE`](LICENSE)) ✅
+- [`FEEDBACK.md`](FEEDBACK.md) in the repository root ✅
+- Uniswap Developer Feedback Form submitted on 2026-09-26, including the link to `FEEDBACK.md` ✅
+- The README points to the relevant contracts and lines of code: see the [Repository Guide](#repository-guide) ✅
+
 ## Repository Guide
 
 > Line numbers refer to the current `main` branch. Items still in progress are marked 🚧.

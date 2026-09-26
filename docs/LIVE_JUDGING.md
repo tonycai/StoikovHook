@@ -189,11 +189,11 @@ Say the first column out loud. The other columns are for checking.
 | Gas, first swap of a block | "about 14,900, about 37% more" | 14,905 gas | `README.md:169`, `README.md:174` |
 | Gas, the same swap with no hook | "about 40,000" | 40,120 gas | `README.md:170` |
 | Trick inside one block | "0.63 down to 0.49 percent, 22% lower, without the cache" | 6,302 → 4,933 pips | `README.md:153`, `README.md:160` |
-| Sepolia, price-down swap | "0.20 percent" | 1,987 pips | `README.md:325` |
-| Sepolia, price-up swap | "0.28 percent" | 2,799 pips | `README.md:326` |
-| Sepolia, both fees in one block | "0.29 up, 0.20 down" | 2,949 / 1,987 pips | `README.md:325` |
-| Hook address | "ends in 5080" | `0x67b97620e35DAf13de266F84cAbC8c8d45755080` | `README.md:308` |
-| Deploy cost | "15 transactions, about 0.0055 ETH" | 15 transactions, 0.0055 ETH | `README.md:300` |
+| Sepolia, price-down swap | "0.20 percent" | 1,987 pips | `README.md:334` |
+| Sepolia, price-up swap | "0.28 percent" | 2,799 pips | `README.md:335` |
+| Sepolia, both fees in one block | "0.29 up, 0.20 down" | 2,949 / 1,987 pips | `README.md:334` |
+| Hook address | "ends in 5080" | `0x67b97620e35DAf13de266F84cAbC8c8d45755080` | `README.md:317` |
+| Deploy cost | "15 transactions, about 0.0055 ETH" | 15 transactions, 0.0055 ETH | `README.md:309` |
 | τR | "15 minutes" | 900 s | `README.md:209`; `docs/simulation/README.md:88` |
 | One hour vs 15 minutes, main test | "one hour a little better" | +0.042 ± 0.027 bps, t = 6.9 | `docs/simulation/README.md:91` |
 | One hour vs 15 minutes, trend turns around | "one hour worse" | −0.117 ± 0.062 bps, t = −8.5 | `docs/simulation/README.md:102` |
