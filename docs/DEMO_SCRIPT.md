@@ -91,7 +91,7 @@ The principle: **conclusion first, then evidence.** Never run a slow script live
 
 ### 0:00–0:30 Lead with the conclusion
 
-- One-line pitch: a v4 hook that uses Avellaneda–Stoikov market-making logic to set dynamic fees that protect LPs.
+- One-line pitch: a v4 hook that uses Avellaneda–Stoikov market-making logic to set directional fees. Arbitrageurs pay more, and regular traders pay the same on average.
 - State three numbers up front:
   1. LP terminal value vs. the fee-matched static pool: +0.160 ± 0.105 bps, positive in 20 of 20 seeds (about 2.2% of the LP's loss versus HODL)
   2. Arbitrageur profit: not lower (+1.6%), but the arbitrageur pays +0.175 bps more in fees, so its share of the value it extracts falls from 32.9% to 30.3%
@@ -166,7 +166,7 @@ Open every answer with a one-sentence summary, then expand. Raise the limitation
 - Defaults: a 0.01% floor and a 1% cap, fixed at deployment (placeholder values).
 - Example: after a 10% price move within one block, both sides hit the 1% cap. If trades then arrive every 12 seconds with no further price movement, the rebalancing side drops below the cap within about 2 blocks. The continuation side stays capped for about 11.6 minutes (computed in spec §2.7).
 - Nobody is locked out. The fee is bounded, and by design there is no revert path (fuzz-tested with 1,000–5,000 runs per fuzz test). The hook registers no liquidity callbacks, so LPs can always withdraw.
-- **Limitations**: the cap also limits the protection. A 10% jump causes far more than 1% of LVR.
+- **Limitations**: the cap also limits how much of an arbitrage the fee can capture. A 10% jump creates far more than 1% of LVR.
 
 ### Q5. How does this differ from existing dynamic fee hooks?
 

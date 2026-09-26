@@ -24,7 +24,7 @@ Commits produced with the agent carry a `Co-Authored-By: Claude …` trailer.
 
 The author set the direction and made the decisions that shape the project:
 
-- **The concept.** Applying Avellaneda–Stoikov market-making logic to Uniswap v4 dynamic fees, with two fee drivers (inventory deviation from equilibrium and recent volatility), the directional rule (imbalancing trades pay more, rebalancing trades pay less, volatility raises all fees) and the goal of reducing LPs' adverse-selection loss (LVR).
+- **The concept.** Applying Avellaneda–Stoikov market-making logic to Uniswap v4 dynamic fees, with two fee drivers (inventory deviation from equilibrium and recent volatility), the directional rule (imbalancing trades pay more, rebalancing trades pay less, volatility raises all fees) and the goal of shrinking the share of LPs' adverse-selection loss (LVR) that arbitrageurs keep.
 - **Engineering constraints.** Pinning compiler settings because the CREATE2-mined hook address depends on the bytecode; keystore-only key handling; never printing RPC URLs; spec-first development; small commits; the English-only policy (all in `CLAUDE.md`).
 - **Spec review decisions** (recorded in `specs/01-design.md` §7):
   - Chose `block.number` over the agent's proposed `block.timestamp` as the fee-window key, because block producers can nudge timestamps.

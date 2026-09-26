@@ -344,7 +344,7 @@ Human review gates: every change to fee computation, hook permissions or anythin
 
 Decisions made by the author:
 
-- **Project concept**: applying Avellaneda–Stoikov inventory and volatility logic to Uniswap v4 dynamic fees to reduce LPs' adverse-selection loss.
+- **Project concept**: applying Avellaneda–Stoikov inventory and volatility logic to Uniswap v4 dynamic fees, so that arbitrageurs keep a smaller share of LPs' adverse-selection loss (LVR).
 - **Engineering constraints**: pinned compiler settings for deterministic CREATE2 hook addresses, keystore-only key handling, spec-first development and small commits (see [`CLAUDE.md`](CLAUDE.md)).
 - **Block-number fee windows**, chosen over the agent's proposed timestamp windows because block producers can nudge timestamps.
 - **The fee-matched static pool** as the comparison baseline.
