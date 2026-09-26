@@ -236,6 +236,7 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 | Gas tests | `test/StoikovHookGas.t.sol` | ✅ Done |
 | Round-trip attack data (with and without the per-block cache) | `test/simulation/AttackDefense.t.sol`; `test/simulation/StoikovHookNoCache.sol` — test-only mutant, never deployed | ✅ Done |
 | Figures | `script/plots/make_figures.py` — every number read from `docs/simulation/` or computed from `defaultFeeParams()`; SVGs in `docs/figures/`, 1600-pixel-wide PNGs of the same figures in `docs/figures/png/` | ✅ Done |
+| Logo and cover image | `script/plots/make_brand.py` — logo source `docs/brand/logo.svg` with 512 and 64 px PNGs, and the 1280×720 cover; the cover's curve is computed from the fee formula | ✅ Done |
 | Comparison simulation | `test/simulation/ComparisonSimulation.t.sol` — price path, arbitrage and noise flow, fee-matched control, metrics; `test/simulation/SimTrader.sol`, `test/simulation/SimLiquidityProvider.sol` — participants; [`docs/simulation/`](docs/simulation/README.md) — results and method | ✅ Done |
 | Design specification | [`specs/01-design.md`](specs/01-design.md) | ✅ Approved |
 
