@@ -214,6 +214,7 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 - **Foundry** (forge, anvil, cast) for building, testing, the local Sepolia fork and deployment.
 - **Uniswap v4-core / v4-periphery**, pulled in through OpenZeppelin **uniswap-hooks** v1.1.0 (hook base contracts).
 - **hookmate** for v4 deployment artifacts and address constants.
+- **Solady** v0.1.26 `FixedPointMathLib` for the fee math: integer square root, WAD multiplication and clamps.
 - **Sepolia** as the target testnet.
 
 ## Repository Guide

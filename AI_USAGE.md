@@ -15,8 +15,10 @@ Commits produced with the agent carry a `Co-Authored-By: Claude …` trailer.
 
 - **Scaffolding.** Created the repository from `uniswapfoundation/v4-template`, pinned the compiler settings in `foundry.toml`, installed dependencies and ran the baseline tests. Along the way it found and fixed template issues: the `broadcast/` ignore rule, the ignored `docs/` directory and the undefined CI profile (see `FEEDBACK.md`).
 - **Design spec drafting.** Wrote `specs/01-design.md` from the author's brief: the mapping from Avellaneda–Stoikov to AMM fees, the fee formula, the on-chain estimators, the state layout, the callback and permission plan, the security analysis and the MVP scope. Two of its proposals were the agent's: measuring inventory against the pool's own EMA price instead of an oracle, and snapshotting fees once per block. Every claim about v4 interfaces cites `file:line` in the pinned dependencies.
-- **Implementation to spec.** Implements the contract as specified in `specs/01-design.md`; the pricing model is 🚧 in progress.
-- **Tests and scripts.** Writes the Foundry unit and fuzz tests and the deployment script, and runs them.
+- **Implementation to spec.** Implemented the contract as specified in `specs/01-design.md`, after the author approved the spec. Every change to fee computation or pool state was shown to the author as a diff before it was committed.
+- **Tests and scripts.** Wrote and ran the Foundry unit, fuzz and gas tests, the mutation checks and the deployment scripts.
+- **Simulation and calibration.** Built the comparison simulation, the τR calibration sweep and the figure script to the author's requirements, and ran the sweep, the holdout check and the reversal diagnostic (`docs/simulation/README.md`).
+- **Deployment checks.** Ran the Sepolia dry runs and a fork rehearsal, then checked the live deployment on chain and verified the source on Etherscan (`docs/deployments/sepolia.md`).
 - **Documentation.** Writes the README, build-log entries, the demo script and FEEDBACK entries, and translated the early Chinese-language docs into English.
 - **Verification tooling.** Rendered the Mermaid diagrams locally, compiled every LaTeX expression with MathJax, recomputed the spec's worked numbers with a script, and verified local deployments on-chain.
 
@@ -32,6 +34,8 @@ The author set the direction and made the decisions that shape the project:
   - Rejected adding a volatility-independent skew term, to keep the MVP formula minimal.
   - Accepted the placeholder parameters and kept the stored fallback fee.
   - Reviewed and approved the agent's proposals for an oracle-free reference price and per-block fee caching.
+- **Simulation and calibration.** Specified the comparison: deterministic and local, a trend and a mean-reverting segment, arbitrage plus noise flow, the fee-matched control, at least 20 seeds, and results published either way. Set the τR protocol before the first run (training seeds 1–20, holdout seeds 21–40, change the default only if the gain holds), then decided to keep τR = 900 s after the reversal diagnostic, overriding the rule's result.
+- **Live deployment.** Ran the Sepolia broadcast from the author's own keystore.
 - **Review gates.** Every change to fee computation, hook permissions or anything that touches funds is shown to the author as a diff and approved before it is committed. The author also approves corrections the agent flags, such as the revised CREATE2 collision guidance in `CLAUDE.md`.
 
 ## 4. Where the Prompts Live
@@ -46,5 +50,5 @@ The author set the direction and made the decisions that shape the project:
 - **Tests.** Every code change must pass `forge test` before it is committed. The test count and gas figures for each change are recorded in `docs/BUILD_LOG.md`.
 - **Evidence.** `CLAUDE.md` requires every conclusion the agent reports to carry `file:line` evidence. Claims about v4 behavior in the spec and in `FEEDBACK.md` cite the pinned source.
 - **Numbers and rendering.** The spec's worked numbers were recomputed with a script. Mermaid diagrams and LaTeX were rendered locally before publishing.
-- **Deployments.** Before an address is published, it is checked on-chain: the flag bits, the code and the getters. The Sepolia deployment is 🚧 in progress.
+- **Deployments.** Before an address is published, it is checked on-chain: the flag bits, the code and the getters. For the Sepolia deployment, the runtime bytecode was also compared with a clean local build before the source was verified on Etherscan.
 - **Honesty rule.** The README only marks features ✅ when they are implemented and tested. Everything else stays 🚧 or 📋.
