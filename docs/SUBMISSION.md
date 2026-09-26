@@ -12,7 +12,7 @@ Uniswap v4 hook that sets fees like a market maker: higher in volatile markets, 
 
 **Solution.** StoikovHook gives the pool the two tools of an Avellaneda–Stoikov market maker. Every block it posts two fees, one per direction, computed only from the pool's own state. A volatility premium raises both. An inventory skew charges more to swaps that push the price further from its slow moving average, and less to swaps that bring it back. No oracle, no admin key, no token custody. Deployed and source-verified on Sepolia.
 
-**Results.** A deterministic Foundry simulation runs identical order flow through every pool, over 20 seeds of 400 blocks. Against a static pool that charges regular traders the same average fee, LPs end +0.160 ± 0.105 bps of pool value ahead, in 20 of 20 seeds. The extra fee income comes entirely from arbitrageurs (+0.175 bps); regular traders pay the same average fee. The effect is small, about 2.2% of the LP's loss versus HODL, and appears only while the price trends. It does not lower LVR in absolute terms: the arbitrageur's share of the value it extracts falls from 32.9% to 30.3%.
+**Results.** A deterministic Foundry simulation runs identical order flow through every pool, over 20 seeds of 400 blocks. Against a static pool that charges regular traders the same average fee, LPs end +0.160 ± 0.105 bps of pool value ahead, in 20 of 20 seeds. The extra fee income comes entirely from arbitrageurs (+0.175 bps); regular traders pay the same average fee. The effect is small, about 2.2% of the LP's loss versus HODL, and appears only while the price trends. It does not lower LVR in absolute terms; what falls instead is the arbitrageur's share of the value it extracts, from 32.9% to 30.3%.
 
 ## 3. How it's made
 
@@ -89,7 +89,7 @@ StoikovHook is an unaudited testnet prototype. The next steps follow from its kn
 
 ## Sources for Every Number
 
-Lengths: short description 99 characters (limit 100); description 242 words; how it's made 299 words; future 149 words.
+Lengths: short description 99 characters (limit 100); description 245 words; how it's made 299 words; future 149 words.
 
 | Number | Used in | Source |
 |---|---|---|
