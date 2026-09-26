@@ -752,3 +752,41 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Tony practices with `docs/LIVE_JUDGING.md`. Add the showcase link to README "Demo" once ETHGlobal publishes it.
 
 ---
+
+## [2026-09-26 17:45 JST] Uniswap Developer Feedback Form submitted
+
+**Goal**: Submit the Uniswap Developer Feedback Form, which the Uniswap Foundation prize requires.
+
+**Result**:
+- Submitted at about 17:45 JST.
+- `FEEDBACK.md` links included in the form:
+  - Pinned: https://github.com/tonycai/StoikovHook/blob/15dec28f83563f272a967b6c2fff72d47e27ea41/FEEDBACK.md
+  - Latest: https://github.com/tonycai/StoikovHook/blob/main/FEEDBACK.md
+- Both links return HTTP 200.
+- With this, every entry requirement for the Uniswap Foundation prize is met: a public, open-source repository, `FEEDBACK.md` in the root, the feedback form, and a README that points to the contracts and lines of code.
+
+**Issues**: None.
+
+**Next**: Add the eligibility checklist to the README.
+
+---
+
+## [2026-09-26 17:56 JST] README: Uniswap Foundation prize eligibility checklist
+
+**Goal**: Documentation only; the code stays frozen. Give judges a quick eligibility checklist, confirm the live judging notes, and run the final status checks.
+
+**Result**:
+- README: a new "Uniswap Foundation Prize Eligibility" section, placed just before the Repository Guide. Each item was checked before it was marked ✅:
+  - The repository is public (`gh repo view`: `PUBLIC`) and MIT-licensed (`LICENSE`, detected by GitHub as MIT).
+  - `FEEDBACK.md` is in the repository root and tracked.
+  - The feedback form was submitted, per the entry above.
+  - The README links to the Repository Guide, and every link in the new section resolves.
+- The new section moved README lines from 220 onward down by 9. The seven references to those lines were updated: five in `docs/LIVE_JUDGING.md` and two in `docs/SUBMISSION.md`. All 42 source checks in the judging notes still pass.
+- `docs/LIVE_JUDGING.md` already existed (commit `15dec28`). Only its README line numbers changed.
+
+**Issues**:
+1. `LICENSE` is the template's MIT license, with the line "Copyright (c) 2023 saucepoint" (the template's author). It is still a valid open-source license, but it does not name the project's author. Left unchanged; flagged to Tony.
+
+**Next**: Live judging at 09:30 JST on 2026-09-27. Add the showcase link to README "Demo" once ETHGlobal publishes it.
+
+---
