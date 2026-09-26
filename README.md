@@ -185,6 +185,7 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 - **Uninformed flow does not react to fees in the model.** That is why the static 0.30% pool has the best absolute LP − HODL: it charges uninformed traders more and loses no volume. In reality, higher fees push volume to other pools, which is why every claim here is made against the fee-matched pool.
 - **StoikovHook does not lower LVR in absolute terms.** The arbitrageur's profit is not lower; it is 1.6% higher. What falls is its share of the value it extracts, from 32.9% to 30.3%. This project does not claim to reduce the absolute size of LVR.
 - **The gain appears only in the trend segment.** In the mean-reversion segment the effect is zero, because the slow reference price still lags the end of the trend, so reversal-direction arbitrage gets the discount.
+- **Parameters are calibrated on a single type of price generator.** The τR experiment ([details](docs/simulation/README.md#calibration-experiment-reference-memory-τr)) shows that the best memory depends on the regime, and real markets switch regimes in more complex ways.
 - **One stylized scenario with uncalibrated default parameters.** The arbitrageur has no gas cost or latency, there is a single full-range LP, and there are no competing venues. See [`docs/simulation/README.md`](docs/simulation/README.md#limitations) and [spec §5.5](specs/01-design.md#55-known-limitations).
 
 ## Tech Stack

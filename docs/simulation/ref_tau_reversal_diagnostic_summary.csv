@@ -1,0 +1,5 @@
+set,ref_tau_s,seeds,lp_gain_mean_bps,lp_gain_sd_bps,lp_gain_t,lp_gain_seeds_positive,first_trend_arb_fee_gain_mean_bps,first_trend_arb_fee_gain_t,reversal_arb_fee_gain_mean_bps,reversal_arb_fee_gain_t,arb_profit_change_mean_bps,stoikov_arb_share_pct,matched_arb_share_pct
+reversal,300,20,0.191,0.063,13.557,20,0.092,8.571,0.091,7.399,0.018,30.680,32.718
+reversal,900,20,0.287,0.086,14.924,20,0.175,13.493,0.086,5.494,0.002,29.267,32.812
+reversal,1800,20,0.234,0.095,11.015,20,0.182,14.032,0.016,0.929,0.000,30.015,32.830
+reversal,3600,20,0.170,0.101,7.527,19,0.185,14.264,-0.058,-3.283,-0.001,30.973,32.866

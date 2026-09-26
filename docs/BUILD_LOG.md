@@ -406,3 +406,24 @@ Current state:
 **Next**: A τR calibration experiment (time-boxed to 60 minutes): sweep on seeds 1–20, validate on held-out seeds 21–40, and do not commit a parameter change without review.
 
 ---
+
+## [2026-09-26 11:22 JST] τR calibration experiment: keep 900 s
+
+**Goal**: Calibrate the reference-price memory τR, time-boxed to 60 minutes. Sweep on seeds 1–20, validate the selected value on held-out seeds 21–40, and change the default only if the improvement holds.
+
+**Result**:
+- Harness refactored into `test/simulation/SimulationBase.sol`, shared by `ComparisonSimulationTest` and the new `RefTauSweepTest`. After the refactor, the comparison outputs are byte-identical to the committed ones.
+- Pre-registered rule, fixed in the test's header before the first run: select the best τR from {60, 150, 300, 600, 900, 1800, 3600} s by the mean same-seed LP − HODL gain over its fee-matched control on seeds 1–20. Adopt it only if its improvement over 900 s on seeds 21–40 is positive with paired t ≥ 2.
+- Training: the gain rises monotonically with τR, from 0.001 at 60 s through 0.166 at 900 s to 0.206 at 3600 s. A longer memory turns the reversion-segment effect positive (−0.001 → +0.027) without costing the trend segment (0.183 → 0.194). A shorter memory makes both worse.
+- Holdout: τR = 3600 s meets the rule, with an improvement over 900 s of **+0.042 ± 0.026 bps, t = 7.2, 19/20 seeds**.
+- Out-of-distribution diagnostic (**added after seeing the sweep results**; not part of the pre-registered protocol): a second segment that reverses the first trend, on seeds 21–40. τR = 3600 s is **−0.117 ± 0.061 bps worse than 900 s, t = −8.6, worse in 20/20 seeds**, and 900 s is the best of {300, 900, 1800, 3600}.
+- **Decision (Tony): keep τR = 900 s**, as the default most robust across the two regimes tested; it is not claimed to be optimal. The rule was overridden because the training and holdout seeds come from the same generator, where every run has one trend away from the starting price and a long memory wins by construction. The holdout set guards against seed overfitting, not scenario overfitting.
+- Output: `docs/simulation/ref_tau_sweep.csv` (180 rows), `ref_tau_sweep_summary.csv`, `ref_tau_reversal_diagnostic.csv` (80 rows) and `ref_tau_reversal_diagnostic_summary.csv`. The decision and its reasoning are in `docs/simulation/README.md`. README Limitations: the parameters were calibrated on a single type of price generator.
+- `FOUNDRY_PROFILE=sim forge test`: 3 passed, about 41 s. `forge test`: 41 passed. No parameter changed.
+
+**Issues**: "Stack too deep" in the sweep's reporting function, with `via_ir` pinned off.
+Fix: split the reporting into small functions; compiler settings unchanged.
+
+**Next**: Recalibrate on a scenario set with repeated reversals and regime switches, or investigate an adaptive τR. Immediate next task: the SVG figures.
+
+---

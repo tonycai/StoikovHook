@@ -61,6 +61,48 @@ Arbitrageur's share of the value its trades extract, i.e. profit / (profit + fee
 - The fee-matched fee is chosen after the fact from the StoikovHook run, which is an idealized control.
 - The hook's volatility estimate also sees the price impact of noise trades, not only moves in the true price.
 
+## Calibration experiment: reference memory τR
+
+`FOUNDRY_PROFILE=sim forge test --match-contract RefTauSweepTest -vv` (about 60 seconds). The code is [`test/simulation/RefTauSweep.t.sol`](../../test/simulation/RefTauSweep.t.sol).
+
+**Protocol, fixed before the first run.** Sweep τR ∈ {60, 150, 300, 600, 900 (default), 1800, 3600} s on training seeds 1–20. The objective is the same-seed LP − HODL gain of StoikovHook over its own fee-matched control, with the control re-matched for every τR. Select the best τR (a tie keeps the default). Validate it on held-out seeds 21–40: adopt it only if its per-seed improvement over the default has a positive mean with paired t ≥ 2.0.
+
+Training, seeds 1–20 (same-seed gain over the fee-matched control, bps of pool value):
+
+| τR (s) | LP gain | t | Seeds > 0 | Trend arbitrage-fee gain | Reversion arbitrage-fee gain | Arbitrageur's share, StoikovHook / control |
+|---|---|---|---|---|---|---|
+| 60 | 0.001 ± 0.030 | 0.1 | 9 | 0.011 | −0.009 | 33.3% / 32.8% |
+| 150 | 0.029 ± 0.041 | 3.2 | 14 | 0.045 | −0.012 | 32.8% / 32.8% |
+| 300 | 0.077 ± 0.063 | 5.5 | 19 | 0.099 | −0.013 | 32.0% / 32.8% |
+| 600 | 0.142 ± 0.094 | 6.8 | 19 | 0.165 | −0.010 | 30.7% / 32.9% |
+| **900** | 0.166 ± 0.101 | 7.4 | 20 | 0.183 | −0.001 | 30.2% / 33.0% |
+| 1800 | 0.196 ± 0.112 | 7.8 | 20 | 0.192 | +0.020 | 29.5% / 33.1% |
+| **3600** | 0.206 ± 0.114 | 8.1 | 20 | 0.194 | +0.027 | 29.3% / 33.1% |
+
+Holdout, seeds 21–40: τR = 900 s gains 0.189 ± 0.080 and τR = 3600 s gains 0.231 ± 0.093. The improvement of 3600 s over 900 s is **+0.042 ± 0.026 bps, t = 7.2, better in 19/20 seeds**, so the pre-registered rule says to adopt 3600 s.
+
+**Shorter memory does not fix the reversion segment; longer memory does.** A short τR makes both segments worse. A long τR lifts the reversion segment from about zero (−0.001) to positive (+0.027 in training, +0.049 in the holdout) without costing anything in the trend segment (0.183 → 0.194).
+
+### Decision: keep τR = 900 s
+
+- **Pre-registered rule:** adopt the selected τR if its improvement over 900 s on the holdout seeds is positive with paired t ≥ 2.
+- **Result:** τR = 3600 s meets the rule (+0.042 ± 0.026 bps, t = 7.2, better in 19/20 seeds).
+- **Why the rule was overridden:** the training and holdout seeds come from the same generator, and every run contains exactly one trend away from the starting price. A long memory, which keeps the reference near the starting price, wins by construction. The holdout set protects against overfitting to particular seeds, not against overfitting to the scenario.
+- **Out-of-distribution diagnostic (added after seeing the sweep results, not part of the pre-registered protocol):** `test_refTauReversalDiagnostic`, seeds 21–40, replaces the mean-reverting segment with a trend in the opposite direction.
+
+  | τR (s) | LP gain, reversal scenario | Arbitrage-fee gain during the reversal |
+  |---|---|---|
+  | 300 | 0.191 ± 0.063 | +0.091 |
+  | **900** | **0.287 ± 0.086** | +0.086 |
+  | 1800 | 0.234 ± 0.095 | +0.016 |
+  | 3600 | 0.170 ± 0.101 | **−0.058** |
+
+  τR = 3600 s is worse than 900 s by −0.117 ± 0.061 bps (t = −8.6, worse in 20/20 seeds), and 900 s is the best of the four values. With a long memory the reference goes stale, and continuation arbitrage in the new direction receives the discount.
+- **Conclusion:** τR = 900 s stays as the default because it is the most robust value across the two regimes tested. It is not claimed to be optimal.
+- **Follow-up work:** recalibrate on a scenario set with repeated trend reversals and regime switches, or investigate an adaptive τR.
+
+Files: `ref_tau_sweep.csv` (per seed), `ref_tau_sweep_summary.csv` (per τR and set; use this for the sensitivity plot), `ref_tau_reversal_diagnostic.csv` and `ref_tau_reversal_diagnostic_summary.csv`.
+
 ## Files
 
 `per_seed.csv`: one row per seed and pool.
