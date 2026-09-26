@@ -1,70 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Vm} from "forge-std/Vm.sol";
-
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {Hooks} from "@uniswap/v4-core/src/libraries/Hooks.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
-import {LPFeeLibrary} from "@uniswap/v4-core/src/libraries/LPFeeLibrary.sol";
 import {CustomRevert} from "@uniswap/v4-core/src/libraries/CustomRevert.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
-import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
-import {LiquidityAmounts} from "@uniswap/v4-core/test/utils/LiquidityAmounts.sol";
 import {Constants} from "@uniswap/v4-core/test/utils/Constants.sol";
-import {IPositionManager} from "@uniswap/v4-periphery/src/interfaces/IPositionManager.sol";
 import {BaseHook} from "@openzeppelin/uniswap-hooks/src/base/BaseHook.sol";
 import {BaseOverrideFee} from "@openzeppelin/uniswap-hooks/src/fee/BaseOverrideFee.sol";
 
-import {EasyPosm} from "./utils/libraries/EasyPosm.sol";
-import {BaseTest} from "./utils/BaseTest.sol";
+import {StoikovHookFixture} from "./utils/StoikovHookFixture.sol";
 
 import {StoikovHook, STOIKOV_HOOK_FLAGS} from "../src/StoikovHook.sol";
 
-contract StoikovHookTest is BaseTest {
-    using EasyPosm for IPositionManager;
-    using PoolIdLibrary for PoolKey;
+/// @notice End-to-end tests: real swaps through PoolManager against a StoikovHook pool.
+contract StoikovHookTest is StoikovHookFixture {
     using StateLibrary for IPoolManager;
 
-    int24 internal constant TICK_SPACING = 60;
-    uint128 internal constant LIQUIDITY = 100e18;
-
-    Currency internal currency0;
-    Currency internal currency1;
-    StoikovHook internal hook;
-
-    /// @dev Dynamic-fee pool that uses StoikovHook.
-    PoolKey internal hookedKey;
-    /// @dev Hookless pool with a static fee equal to StoikovHook.PLACEHOLDER_FEE (0.30%).
-    PoolKey internal placeholderFeeKey;
-    /// @dev Hookless pool with a static fee equal to StoikovHook.BASE_FEE (0.05%), the hooked pool's stored fee.
-    PoolKey internal baseFeeKey;
-
-    function setUp() public {
-        deployArtifactsAndLabel();
-        (currency0, currency1) = deployCurrencyPair();
-
-        // The low 14 bits of the address carry the permission flags; the high bits namespace it.
-        address hookAddress = address(STOIKOV_HOOK_FLAGS ^ (0x4444 << 144));
-        deployCodeTo("StoikovHook.sol:StoikovHook", abi.encode(poolManager), hookAddress);
-        hook = StoikovHook(hookAddress);
-
-        hookedKey = PoolKey(currency0, currency1, LPFeeLibrary.DYNAMIC_FEE_FLAG, TICK_SPACING, IHooks(hook));
-        placeholderFeeKey = PoolKey(currency0, currency1, hook.PLACEHOLDER_FEE(), TICK_SPACING, IHooks(address(0)));
-        baseFeeKey = PoolKey(currency0, currency1, hook.BASE_FEE(), TICK_SPACING, IHooks(address(0)));
-
-        _initializeWithFullRangeLiquidity(hookedKey);
-        _initializeWithFullRangeLiquidity(placeholderFeeKey);
-        _initializeWithFullRangeLiquidity(baseFeeKey);
-    }
+    /// @dev Fee both directions pay right after initialization with the default parameters:
+    ///      f0 + α·σ_h(V0) = 500 + floor(100 · √(12 · 1)) = 500 + 346.
+    uint24 internal constant SEEDED_FEE = 846;
 
     // ------------------------------------------------------------------
-    // Permissions and address flags
+    // Permissions, initialization and access control
     // ------------------------------------------------------------------
 
     function test_hookFlags_matchPermissionsAndAddress() public view {
@@ -72,20 +35,25 @@ contract StoikovHookTest is BaseTest {
         assertEq(
             _flagsFromPermissions(hook.getHookPermissions()),
             STOIKOV_HOOK_FLAGS,
-            "getHookPermissions() must match HOOK_FLAGS"
+            "getHookPermissions() must match the flag constant"
         );
         assertEq(
-            uint160(address(hook)) & Hooks.ALL_HOOK_MASK, STOIKOV_HOOK_FLAGS, "address bits must match HOOK_FLAGS"
+            uint160(address(hook)) & Hooks.ALL_HOOK_MASK, STOIKOV_HOOK_FLAGS, "address bits must match the flags"
         );
     }
 
-    // ------------------------------------------------------------------
-    // afterInitialize
-    // ------------------------------------------------------------------
+    function test_afterInitialize_seedsStateAndFallbackFee() public view {
+        StoikovHook.PoolState memory state = hook.getPoolState(hookedId);
+        assertEq(state.lastBlock, block.number, "window key");
+        assertEq(state.lastTimestamp, block.timestamp, "timestamp");
+        assertEq(state.lastTick, 0, "pool starts at tick 0");
+        assertEq(state.refTickX16, 0, "reference starts at the initial tick");
+        assertEq(state.variance, hook.initialVariance(), "variance starts at V0");
+        assertEq(state.feeUp, SEEDED_FEE, "seeded price-up fee");
+        assertEq(state.feeDown, SEEDED_FEE, "seeded price-down fee");
 
-    function test_afterInitialize_storesBaseFeeAsFallback() public view {
-        (,,, uint24 storedFee) = poolManager.getSlot0(hookedKey.toId());
-        assertEq(storedFee, hook.BASE_FEE(), "stored LP fee must be BASE_FEE, not the dynamic-pool default of 0");
+        (,,, uint24 storedFee) = poolManager.getSlot0(hookedId);
+        assertEq(storedFee, hook.baseFee(), "stored LP fee must be baseFee, not the dynamic-pool default of 0");
     }
 
     function test_afterInitialize_revertsForStaticFeePool() public {
@@ -103,48 +71,6 @@ contract StoikovHookTest is BaseTest {
         poolManager.initialize(staticKey, Constants.SQRT_PRICE_1_1);
     }
 
-    // ------------------------------------------------------------------
-    // beforeSwap: the pool charges the hook's override fee
-    // ------------------------------------------------------------------
-
-    function test_swap_chargesOverrideFeeInBothDirections() public {
-        PoolId id = hookedKey.toId();
-
-        vm.recordLogs();
-        _swap(hookedKey, true, 1e18);
-        assertEq(_feeFromSwapEvent(id), hook.PLACEHOLDER_FEE(), "zeroForOne swap must pay the override fee");
-
-        vm.recordLogs();
-        _swap(hookedKey, false, 1e18);
-        assertEq(_feeFromSwapEvent(id), hook.PLACEHOLDER_FEE(), "oneForZero swap must pay the override fee");
-
-        // The override applies per swap and leaves the stored fee untouched.
-        (,,, uint24 storedFee) = poolManager.getSlot0(id);
-        assertEq(storedFee, hook.BASE_FEE(), "stored LP fee must be unchanged");
-    }
-
-    /// forge-config: default.fuzz.runs = 1000
-    function testFuzz_swap_matchesStaticPoolAtOverrideFee(uint256 amountIn, bool zeroForOne) public {
-        amountIn = bound(amountIn, 1e6, 10e18);
-
-        BalanceDelta hooked = _swap(hookedKey, zeroForOne, amountIn);
-        BalanceDelta placeholderFee = _swap(placeholderFeeKey, zeroForOne, amountIn);
-        BalanceDelta baseFee = _swap(baseFeeKey, zeroForOne, amountIn);
-
-        // Identical deltas to a static pool at PLACEHOLDER_FEE: the override fee is what was charged.
-        assertEq(hooked.amount0(), placeholderFee.amount0(), "amount0 must match the 0.30% static pool");
-        assertEq(hooked.amount1(), placeholderFee.amount1(), "amount1 must match the 0.30% static pool");
-
-        // Strictly less output than a static pool at BASE_FEE: the stored fee was not what was charged.
-        int128 hookedOut = zeroForOne ? hooked.amount1() : hooked.amount0();
-        int128 baseFeeOut = zeroForOne ? baseFee.amount1() : baseFee.amount0();
-        assertLt(hookedOut, baseFeeOut, "output must be below the 0.05% static pool");
-    }
-
-    // ------------------------------------------------------------------
-    // Access control
-    // ------------------------------------------------------------------
-
     function test_callbacks_revertWhenNotCalledByPoolManager() public {
         vm.expectRevert(BaseHook.NotPoolManager.selector);
         hook.afterInitialize(address(this), hookedKey, Constants.SQRT_PRICE_1_1, 0);
@@ -156,60 +82,162 @@ contract StoikovHookTest is BaseTest {
     }
 
     // ------------------------------------------------------------------
-    // Helpers
+    // The pool charges the hook's fee, not its stored fee
     // ------------------------------------------------------------------
 
-    function _initializeWithFullRangeLiquidity(PoolKey memory key) internal {
-        poolManager.initialize(key, Constants.SQRT_PRICE_1_1);
+    function test_swap_chargesHookFeeNotStoredFee() public {
+        assertEq(_swapAndGetFee(true, 1e18), SEEDED_FEE, "zeroForOne pays the hook's fee");
+        assertEq(_swapAndGetFee(false, 1e18), SEEDED_FEE, "oneForZero pays the hook's fee");
 
-        int24 tickLower = TickMath.minUsableTick(key.tickSpacing);
-        int24 tickUpper = TickMath.maxUsableTick(key.tickSpacing);
-        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
-            Constants.SQRT_PRICE_1_1,
-            TickMath.getSqrtPriceAtTick(tickLower),
-            TickMath.getSqrtPriceAtTick(tickUpper),
-            LIQUIDITY
-        );
-        positionManager.mint(
-            key,
-            tickLower,
-            tickUpper,
-            LIQUIDITY,
-            amount0 + 1,
-            amount1 + 1,
-            address(this),
-            block.timestamp,
-            Constants.ZERO_BYTES
-        );
+        (,,, uint24 storedFee) = poolManager.getSlot0(hookedId);
+        assertEq(storedFee, hook.baseFee(), "the per-swap override leaves the stored fee untouched");
     }
 
-    function _swap(PoolKey memory key, bool zeroForOne, uint256 amountIn) internal returns (BalanceDelta) {
-        return swapRouter.swapExactTokensForTokens({
-            amountIn: amountIn,
-            amountOutMin: 0,
-            zeroForOne: zeroForOne,
-            poolKey: key,
-            hookData: Constants.ZERO_BYTES,
-            receiver: address(this),
-            deadline: block.timestamp + 1
-        });
+    /// forge-config: default.fuzz.runs = 1000
+    function testFuzz_swap_matchesStaticPoolAtHookFee(uint256 amountIn, bool zeroForOne) public {
+        amountIn = bound(amountIn, 1e6, 10e18);
+
+        BalanceDelta hooked = _swap(hookedKey, zeroForOne, amountIn);
+        BalanceDelta seededFee = _swap(seededFeeKey, zeroForOne, amountIn);
+        BalanceDelta baseFee = _swap(baseFeeKey, zeroForOne, amountIn);
+
+        // Identical deltas to a static pool at the hook's fee: that fee is what was charged.
+        assertEq(hooked.amount0(), seededFee.amount0(), "amount0 must match the static pool at the hook fee");
+        assertEq(hooked.amount1(), seededFee.amount1(), "amount1 must match the static pool at the hook fee");
+
+        // Strictly less output than a static pool at the stored fee: the stored fee was not charged.
+        int128 hookedOut = zeroForOne ? hooked.amount1() : hooked.amount0();
+        int128 baseFeeOut = zeroForOne ? baseFee.amount1() : baseFee.amount0();
+        assertLt(hookedOut, baseFeeOut, "output must be below the static pool at the stored fee");
     }
 
-    /// @dev Returns the `fee` field of the last PoolManager `Swap` event recorded for `id`.
-    function _feeFromSwapEvent(PoolId id) internal returns (uint24 fee) {
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        bool found;
-        for (uint256 i; i < logs.length; ++i) {
-            if (
-                logs[i].emitter == address(poolManager) && logs[i].topics[0] == IPoolManager.Swap.selector
-                    && logs[i].topics[1] == PoolId.unwrap(id)
-            ) {
-                (,,,,, fee) = abi.decode(logs[i].data, (int128, int128, uint160, uint128, int24, uint24));
-                found = true;
-            }
+    // ------------------------------------------------------------------
+    // Inventory skew: direction of the fee asymmetry
+    // ------------------------------------------------------------------
+
+    function test_skewZero_bothDirectionsPayTheSame() public {
+        // No price movement since initialization: q̂ = 0.
+        _nextBlock(BLOCK_TIME);
+        (uint24 feeUp, uint24 feeDown) = hook.previewFees(hookedKey);
+        assertEq(feeUp, feeDown, "no displacement, no skew");
+        assertEq(_swapAndGetFee(true, 1e15), feeDown, "charged fee matches the preview");
+    }
+
+    function test_skewPositive_afterPriceRise_priceUpPaysMore() public {
+        _swap(hookedKey, false, 1e18); // push the price up (sell token1 for token0)
+        _nextBlock(BLOCK_TIME);
+
+        (uint24 feeUp, uint24 feeDown) = hook.previewFees(hookedKey);
+        assertGt(feeUp, feeDown, "above the reference: extending the move costs more than reverting it");
+        assertEq(_swapAndGetFee(false, 1e15), feeUp, "price-up swap pays feeUp");
+        assertEq(_swapAndGetFee(true, 1e15), feeDown, "price-down swap pays feeDown");
+    }
+
+    function test_skewNegative_afterPriceFall_priceDownPaysMore() public {
+        _swap(hookedKey, true, 1e18); // push the price down (sell token0 for token1)
+        _nextBlock(BLOCK_TIME);
+
+        (uint24 feeUp, uint24 feeDown) = hook.previewFees(hookedKey);
+        assertGt(feeDown, feeUp, "below the reference: extending the move costs more than reverting it");
+        assertEq(_swapAndGetFee(true, 1e15), feeDown, "price-down swap pays feeDown");
+        assertEq(_swapAndGetFee(false, 1e15), feeUp, "price-up swap pays feeUp");
+    }
+
+    // ------------------------------------------------------------------
+    // Volatility: higher volatility raises both fees, then they decay
+    // ------------------------------------------------------------------
+
+    function test_volatility_jumpRaisesFeesThenQuietWindowsDecayThem() public {
+        _swap(hookedKey, false, 1e18); // a ≈2% jump
+        _nextBlock(BLOCK_TIME);
+
+        (uint24 feeUp, uint24 feeDown) = hook.previewFees(hookedKey);
+        uint256 previousSum = uint256(feeUp) + feeDown;
+        assertGt(feeUp, SEEDED_FEE, "price-up fee rises after the jump");
+        assertGt(feeDown, SEEDED_FEE, "price-down fee rises after the jump");
+
+        // Quiet windows: tiny swaps open each window without moving the tick, so the variance decays.
+        for (uint256 i; i < 5; ++i) {
+            _swap(hookedKey, true, 1e6);
+            _nextBlock(BLOCK_TIME);
+            (feeUp, feeDown) = hook.previewFees(hookedKey);
+            uint256 sum = uint256(feeUp) + feeDown;
+            assertLt(sum, previousSum, "the mean fee decays while the price stays put");
+            assertGe(feeDown, hook.baseFee(), "fees never drop below f0 while beta <= alpha");
+            previousSum = sum;
         }
-        assertTrue(found, "no Swap event recorded for the pool");
     }
+
+    // ------------------------------------------------------------------
+    // Per-block caching
+    // ------------------------------------------------------------------
+
+    function test_sameBlock_allSwapsPayTheWindowFees() public {
+        _swap(hookedKey, false, 1e18); // make the next window asymmetric
+        _nextBlock(BLOCK_TIME);
+        (uint24 feeUp, uint24 feeDown) = hook.previewFees(hookedKey);
+
+        assertEq(_swapAndGetFee(true, 1e18), feeDown, "1st swap, down");
+        StoikovHook.PoolState memory afterFirst = hook.getPoolState(hookedId);
+
+        assertEq(_swapAndGetFee(false, 3e18), feeUp, "2nd swap, up");
+        assertEq(_swapAndGetFee(true, 5e17), feeDown, "3rd swap, down");
+        assertEq(_swapAndGetFee(false, 1e17), feeUp, "4th swap, up");
+
+        StoikovHook.PoolState memory afterLast = hook.getPoolState(hookedId);
+        assertEq(abi.encode(afterLast), abi.encode(afterFirst), "state is written once per block");
+    }
+
+    function test_sameBlock_roundTripCannotLowerLaterFee() public {
+        _swap(hookedKey, false, 1e18); // price above the reference in the next window
+        _nextBlock(BLOCK_TIME);
+        (uint24 feeUp, uint24 feeDown) = hook.previewFees(hookedKey);
+        assertGt(feeUp, feeDown);
+
+        // Sell token0 at the discounted rate, pushing the price back through the reference...
+        assertEq(_swapAndGetFee(true, 2e18), feeDown);
+        // ...then buy a large size. It still pays the window-open price-up fee, not the discount.
+        assertEq(_swapAndGetFee(false, 5e18), feeUp, "the round trip did not change the fee");
+    }
+
+    function test_newBlockSameTimestamp_opensWindowWithoutReverting() public {
+        _swap(hookedKey, false, 1e18);
+        vm.roll(block.number + 1); // a new block with the same timestamp: elapsed time is floored at 1 s
+
+        uint24 fee = _swapAndGetFee(false, 1e15);
+        StoikovHook.PoolState memory state = hook.getPoolState(hookedId);
+        assertEq(state.lastBlock, block.number, "a new window opened");
+        assertEq(fee, state.feeUp, "the swap paid the new window's fee");
+    }
+
+    // ------------------------------------------------------------------
+    // Bounds under arbitrary swap sequences
+    // ------------------------------------------------------------------
+
+    /// forge-config: default.fuzz.runs = 1000
+    function testFuzz_swapSequence_feesStayWithinBounds(uint256 seed) public {
+        uint24 minFee = hook.minFee();
+        uint24 maxFee = hook.maxFee();
+
+        for (uint256 i; i < 10; ++i) {
+            uint256 r = uint256(keccak256(abi.encode(seed, i)));
+            vm.roll(block.number + 1 + (r % 3));
+            vm.warp(block.timestamp + (r >> 8) % 40); // includes 0: several blocks, one timestamp
+            bool zeroForOne = (r >> 16) % 2 == 0;
+            uint256 amountIn = bound(r >> 24, 1e6, 3e18);
+
+            (uint24 previewUp, uint24 previewDown) = hook.previewFees(hookedKey);
+            uint24 fee = _swapAndGetFee(zeroForOne, amountIn);
+
+            assertEq(fee, zeroForOne ? previewDown : previewUp, "charged fee matches the preview");
+            assertGe(fee, minFee, "fee >= fmin");
+            assertLe(fee, maxFee, "fee <= fmax");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
 
     function _flagsFromPermissions(Hooks.Permissions memory p) internal pure returns (uint160 flags) {
         if (p.beforeInitialize) flags |= Hooks.BEFORE_INITIALIZE_FLAG;

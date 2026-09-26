@@ -9,7 +9,7 @@
 > Built at ETHGlobal Tokyo 2026
 
 > [!NOTE]
-> **Project status: hook skeleton done, pricing model in progress.** The fee model is fully specified and approved in [`specs/01-design.md`](specs/01-design.md). The skeleton is implemented, tested and deployed on a local chain, and charges a fixed placeholder fee. The volatility and inventory pricing is not implemented yet.
+> **Project status: fee model implemented and tested; comparison simulation and Sepolia deployment in progress.** The fee model specified and approved in [`specs/01-design.md`](specs/01-design.md) is implemented in [`src/StoikovHook.sol`](src/StoikovHook.sol). Default parameters are placeholders until calibration.
 > Status legend: ✅ Done · 🚧 In progress · 📋 Planned. Anything not marked ✅ is **not** done.
 
 ## Problem
@@ -24,18 +24,18 @@ StoikovHook gives a v4 pool both tools. For every block it computes two fees fro
 
 ## Goals
 
-Each goal is a measurable outcome with a named way to check it. None is achieved yet (📋). Results will be published here **whether or not** they meet the goal.
+Each goal is a measurable outcome with a named way to check it. Results are published here **whether or not** they meet the goal.
 
 | # | Goal | How it is verified | Status |
 |---|---|---|---|
 | G1 | **Better LP outcome for the same cost to traders.** Under identical order flow (same price path, same arbitrage and uninformed trades), LPs in the StoikovHook pool end with a higher terminal value, marked to the reference price, than LPs in a static-fee pool charging the same average fee to uninformed traders. Results against static 0.05% and 0.30% pools are reported alongside. | Deterministic Foundry scenario comparing four pools ([spec §6, M3](specs/01-design.md#61-mvp-must-ship-for-the-demo)) | 📋 Planned |
 | G2 | **Direction-aware fees on a live network.** On Sepolia, swaps in opposite directions pay different fees, as recorded in the `fee` field of the PoolManager's own `Swap` event. | Published transaction hashes, verified hook source | 📋 Planned |
-| G3 | **The hook never blocks trading.** Every fee stays within [0.01%, 1%], and no swap reverts inside the hook. | Fuzz tests (≥ 1,000 runs) over random swap sequences and time gaps | 📋 Planned |
-| G4 | **Low gas overhead.** ≤ 5,000 gas for swaps that reuse the block's cached fees, and ≤ 25,000 gas for the first swap of a block. | Foundry gas snapshots, recorded in the build log | 📋 Planned |
+| G3 | **The hook never blocks trading.** Every fee stays within [0.01%, 1%], and no swap reverts inside the hook. | Fuzz tests (≥ 1,000 runs) over random swap sequences and time gaps | ✅ Done (see [Security](#security)) |
+| G4 | **Low gas overhead.** ≤ 5,000 gas for swaps that reuse the block's cached fees, and ≤ 25,000 gas for the first swap of a block. | Foundry gas snapshots, recorded in the build log | ✅ Done, warm measurement (see [Gas](#gas)) |
 
 ## Architecture
 
-> 🚧 In progress. The diagrams show the design in [`specs/01-design.md`](specs/01-design.md); the implementation will follow it.
+> The diagrams match the implementation in [`src/StoikovHook.sol`](src/StoikovHook.sol) and the design in [`specs/01-design.md`](specs/01-design.md).
 
 **(a) Components.** Solid arrows are calls; dotted arrows are return values and read-only access.
 
@@ -98,13 +98,13 @@ sequenceDiagram
 | Feature | Description | Status |
 |---|---|---|
 | Project scaffolding | Foundry project built on the v4 template, with compiler settings pinned so the CREATE2-mined hook address is reproducible. | ✅ Done |
-| Hook skeleton | `afterInitialize` + `beforeSwap` permissions (address flags `0x1080`), a dynamic-fee guard, a stored fallback fee of 0.05%, and a per-swap fee override that currently charges a fixed 0.30% placeholder. | ✅ Done |
-| Dynamic fee computation | Each block has two fees, one for price-up swaps and one for price-down swaps, applied per swap through v4's `OVERRIDE_FEE_FLAG`. | 🚧 In progress (spec approved, code not started) |
-| Inventory skew | Swaps that push the pool away from its recent equilibrium (an EMA of its own tick) pay more, and swaps that bring it back pay less. | 🚧 In progress (spec approved, code not started) |
-| Volatility estimation | On-chain EWMA of realized volatility from the pool's own ticks, updated once per block, with no oracle. | 🚧 In progress (spec approved, code not started) |
-| Fee bounds protection | Every fee is clamped to a floor and a cap (default 0.01%–1%), and the fee calculation is designed never to revert a swap. | 🚧 In progress (spec approved, code not started) |
-| Per-block fee snapshot | Fees are fixed for the whole block, so trading back and forth within a block cannot lower your own fee. | 🚧 In progress (spec approved, code not started) |
-| Test suite | Unit, fuzz (≥ 1,000 runs) and gas-snapshot tests for the hook. | 📋 Planned |
+| Hook skeleton | `afterInitialize` + `beforeSwap` permissions (address flags `0x1080`), a dynamic-fee guard, a stored fallback fee of 0.05%, and a per-swap fee override. | ✅ Done |
+| Dynamic fee computation | Each block has two fees, one for price-up swaps and one for price-down swaps, applied per swap through v4's `OVERRIDE_FEE_FLAG`. | ✅ Done |
+| Inventory skew | Swaps that push the pool away from its recent equilibrium (an EMA of its own tick) pay more, and swaps that bring it back pay less. | ✅ Done |
+| Volatility estimation | On-chain EWMA of realized volatility from the pool's own ticks, updated once per block, with no oracle. | ✅ Done |
+| Fee bounds protection | Every fee is clamped to a floor and a cap (default 0.01%–1%), and the fee calculation is designed never to revert a swap. | ✅ Done |
+| Per-block fee snapshot | Fees are fixed for the whole block, so trading back and forth within a block cannot lower your own fee. | ✅ Done |
+| Test suite | 35 hook tests: integration tests through PoolManager, fee-math unit tests, fuzz tests (1,000–5,000 runs) and gas tests. | ✅ Done |
 | Comparison simulation | A deterministic scenario that runs identical order flow through StoikovHook and through static-fee pools, including a fee-matched baseline, and reports LP value, fee income and arbitrage profit. | 📋 Planned |
 | Sepolia deployment | Hook deployed at a mined address with flags `0x1080`, source verified, and a demo pool with swaps in both directions. | 📋 Planned |
 
@@ -121,7 +121,7 @@ What StoikovHook deliberately does **not** do:
 
 ## How It Works
 
-> 🚧 In progress. This describes the design; parameter values are placeholders until calibration.
+> Implemented in [`src/StoikovHook.sol`](src/StoikovHook.sol). Parameter values are placeholders until calibration.
 
 Picture the pool as a currency-exchange booth that posts two prices, one for buying ETH and one for selling it.
 
@@ -133,6 +133,36 @@ Picture the pool as a currency-exchange booth that posts two prices, one for buy
 
 The math behind each step, and why it follows the Avellaneda–Stoikov model, is in [`specs/01-design.md`](specs/01-design.md) §2.
 
+## Security
+
+What the tests guarantee, and the evidence that the design choices matter:
+
+- **Fees are always bounded, and the hook never blocks a swap.** Fuzz tests drive the fee math with any variance, any displacement and any valid parameter set (5,000 and 1,000 runs), and drive real swap sequences across random blocks and time gaps (1,000 runs). Every fee lands in [fmin, fmax], and no input makes the hook revert.
+- **Neither side ever drops below f0.** The constructor rejects β > α (`src/StoikovHook.sol:L294`). A boundary test checks that β = α puts the rebalancing side exactly on f0.
+- **Per-block fee caching is necessary, not cosmetic.** Mutation testing deliberately breaks the code and checks that the tests catch it:
+
+  | Mutation | Tests that fail (of 41) | What it shows |
+  |---|---|---|
+  | Flip the sign of the inventory skew | 10 (9 of 40 before the β = α boundary test was added) | The skew-direction tests and all three fuzz invariants catch a reversed skew. |
+  | Remove per-block caching (recompute fees on every swap) | 7 | Reproduces the attack in spec §5.4: a round trip within one block lowers a large swap's fee from 6,301 to 4,933 pips. This is direct evidence that the cache is required. |
+
+- **Minimal trust surface.** Only PoolManager can call the hook. There is no owner, no mutable parameter, no oracle and no token custody. The hook registers no liquidity callbacks, so LPs can always withdraw.
+- **Known limitations** are listed in [spec §5.5](specs/01-design.md#55-known-limitations).
+
+## Gas
+
+Extra gas StoikovHook adds to a swap, measured by [`test/StoikovHookGas.t.sol`](test/StoikovHookGas.t.sol) (`forge test --match-contract StoikovHookGasTest -vv`): the same 1e18 swap in the hooked pool minus the same swap in an identical hookless pool.
+
+| Path | Warm | Cold | Budget (warm) |
+|---|---|---|---|
+| Later swaps in a block (cached fees) | 3,678 | 5,678 | ≤ 5,000 ✅ |
+| First swap of a block (fee window opens) | 14,905 | 16,905 | ≤ 25,000 ✅ |
+| For scale: the same swap in a hookless pool | 40,120 | 48,120 | — |
+
+- **Warm**: both pools were touched earlier in the transaction. This is the methodology of the skeleton's 2,093-gas baseline, and the budgets apply to it (spec §6, A8).
+- **Cold**: storage is first marked untouched with `vm.cool`. The extra 2,000 gas is the cold read of the pool's state slot, an inherent cost for any hook that keeps per-pool state. Treat the cold figures as a lower bound: the first call to the hook address in a real transaction also pays about 2,500 gas for cold account access, which this measurement does not capture.
+- **Relative cost**: about +9% on the cached path and +37% on the first swap of a block, compared with the hookless swap's execution gas. A full transaction also pays the 21,000-gas base cost and calldata, so the share of the total is smaller.
+
 ## Tech Stack
 
 - **Solidity** 0.8.30. Compiler settings are pinned in `foundry.toml` because the CREATE2-mined hook address depends on the exact bytecode.
@@ -143,18 +173,21 @@ The math behind each step, and why it follows the Avellaneda–Stoikov model, is
 
 ## Repository Guide
 
-> 🚧 In progress. File paths and line numbers will be filled in as each part is implemented, in the format `src/StoikovHook.sol:L120-L145`.
+> Line numbers refer to the current `main` branch. Items still in progress are marked 🚧.
 
 | What to verify | Location | Status |
 |---|---|---|
-| Hook permissions (`afterInitialize` + `beforeSwap`, address flags `0x1080`) | `src/StoikovHook.sol:L15` — flag constant shared with the deploy script and tests; `lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:L75-L92` — inherited permission set | ✅ Done |
-| Dynamic-fee guard and stored fallback fee (`afterInitialize`) | `src/StoikovHook.sol:L40-L48` — rejects static-fee pools, stores 0.05% as the fallback LP fee | ✅ Done |
-| Per-swap fee override returned from `beforeSwap` | `src/StoikovHook.sol:L52-L59` — fee source (placeholder); `lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:L67` — adds `OVERRIDE_FEE_FLAG` | ✅ Done (fixed placeholder fee) |
-| Fee formula: volatility premium, inventory skew, clamps | `src/StoikovHook.sol:L?` | 🚧 In progress |
-| Estimator update at window open (EWMA volatility, EMA reference) and per-pool state seeding | `src/StoikovHook.sol:L?` | 🚧 In progress |
-| Address mining and CREATE2 deployment | `script/00_DeployHook.s.sol:L18-L31` — mines with the shared flag constant, deploys via CREATE2 | ✅ Done (local anvil); Sepolia 🚧 |
-| Skeleton tests | `test/StoikovHook.t.sol:L66-L157` — flags vs. permissions, fallback fee, static-fee rejection, override fee in both directions, 1,000-run fuzz against static pools, access control | ✅ Done |
-| Fee-model and scenario tests | `test/…` | 🚧 In progress |
+| Hook permissions (`afterInitialize` + `beforeSwap`, address flags `0x1080`) | `src/StoikovHook.sol:L18` — flag constant shared with the deploy script and tests; `lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:L75-L92` — inherited permission set | ✅ Done |
+| Dynamic-fee guard, state seeding and stored fallback fee (`afterInitialize`) | `src/StoikovHook.sol:L174-L196` — rejects static-fee pools, seeds the estimators, stores f0 as the fallback LP fee | ✅ Done |
+| Per-swap fee override returned from `beforeSwap` | `src/StoikovHook.sol:L200-L219` — opens the fee window on a block's first swap, returns the cached fee for the swap's direction; `lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:L67` — adds `OVERRIDE_FEE_FLAG` | ✅ Done |
+| Fee formula: volatility premium, inventory skew, clamps | `src/StoikovHook.sol:L260-L286` — f = clamp(f0 + σ_h·(α ± β·q̂), fmin, fmax) | ✅ Done |
+| Estimator update at window open (EWMA volatility, EMA reference) | `src/StoikovHook.sol:L222-L254` — elapsed time floored at 1 s, tick change winsorized at ±C | ✅ Done |
+| Parameters and deploy-time validation | `src/StoikovHook.sol:L22-L69` — `FeeParams` and the defaults with their rationale; `src/StoikovHook.sol:L290-L299` — invariants, including β ≤ α | ✅ Done |
+| Address mining and CREATE2 deployment | `script/00_DeployHook.s.sol:L18-L35` — mines with the shared flag constant and the encoded fee parameters, deploys via CREATE2 | ✅ Done (local anvil); Sepolia 🚧 |
+| Integration tests through PoolManager | `test/StoikovHook.t.sol` — permissions and initialization (L30-L83), charged fee vs. stored fee (L85-L113), skew direction (L115-L145), volatility response (L147-L170), per-block caching (L172-L212), fuzzed swap sequences (L214-L237) | ✅ Done |
+| Fee-math unit and fuzz tests | `test/StoikovHookFees.t.sol` — skew (L29-L78), volatility (L80-L104), bounds for any input and parameters (L106-L127), window update (L129-L196), parameter validation (L198-L277) | ✅ Done |
+| Gas tests | `test/StoikovHookGas.t.sol` | ✅ Done |
+| Comparison simulation | `test/…` | 🚧 In progress |
 | Design specification | [`specs/01-design.md`](specs/01-design.md) | ✅ Approved |
 
 ## Getting Started
@@ -169,7 +202,7 @@ forge build
 forge test
 ```
 
-`forge test` runs 12 tests: 6 for the StoikovHook skeleton, including a 1,000-run fuzz test, and 6 for the template's position-manager helpers. Tests for the pricing model are 🚧 in progress.
+`forge test` runs 41 tests: 35 for StoikovHook (integration tests, fee-math unit and fuzz tests with up to 5,000 runs, and gas tests) and 6 for the template's position-manager helpers. Add `--match-contract StoikovHookGasTest -vv` to print the gas figures.
 
 Note: `forge test` also prints `error: file src/base/BaseHook.sol not found`. This is a known, harmless toolchain diagnostic; the build and every test succeed (see [`FEEDBACK.md`](FEEDBACK.md)).
 

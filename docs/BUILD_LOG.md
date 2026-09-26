@@ -354,3 +354,30 @@ Current state:
 - Environment to restore before starting: `forge install` if the clone is fresh, then an anvil Sepolia fork with `--block-time 1` (`anvil --fork-url "$SEPOLIA_RPC_URL" --block-time 1`, with the RPC URL coming from the local environment and never printed). Check that `forge test` is green before writing code.
 
 ---
+
+## [2026-09-26 10:32 JST] Volatility and inventory fee model
+
+**Goal**: Replace the placeholder `_getFee` with the approved fee model (spec §2): σ_h from block-to-block tick changes, q̂ from the displacement against a slow EMA of the pool's own price, f = clamp(f0 + σ_h·(α ± β·q̂), fmin, fmax), computed once per block. Use a public fixed-point library, with no hand-written ln/exp.
+
+**Result**:
+- `src/StoikovHook.sol`: `_getFee` (L200–L219) opens a fee window on a block's first swap and returns the cached fee for the swap's direction. `_openWindow` (L222–L254) updates the EWMA variance and the EMA reference, with elapsed time floored at 1 s. `_computeFees` (L260–L286) implements the formula. The parameters are constructor arguments (`FeeParams`, defaults with their rationale at L48–L69), validated at deploy time (L290–L299, including β ≤ α). Also new: read-only `previewFees` and `getPoolState`.
+- Math: Solady v0.1.26 (`acd959a`), a new pinned dependency with remapping `solady/=lib/solady/src/`. It provides `sqrt`, `mulWad`, `mulDiv`, `abs`, `min`, `clamp` and `zeroFloorSub`. The spec's formulas need no ln/exp.
+- "Window length": the fee window is one block (spec §7). The configurable estimator memory is `volTau` = 300 s (about 25 blocks), with its rationale in the code.
+- `forge test`: **41 passed / 0 failed**. 35 are StoikovHook tests (14 integration, 17 fee-math, 4 gas) and 6 are EasyPosm tests. Fuzz: fees within [fmin, fmax] and ≥ f0 for any input (5,000 runs), any valid parameters (1,000 runs), any pool state and timestamps (5,000 runs), and random multi-block swap sequences (1,000 runs).
+- Exact fee checks with the defaults: 846/846 at q̂ = 0, 933/759 at q̂ = ±0.5, 1019/673 at full skew, 1192 at 4× variance. The β = α boundary puts the rebalancing side exactly on f0 = 500.
+- Gas, as extra gas over an identical hookless swap. The skeleton baseline was 2,093 warm.
+  - Cached path: **3,678 warm** / 5,678 cold (budget ≤ 5,000, warm).
+  - Window-open path: **14,905 warm** / 16,905 cold (budget ≤ 25,000, warm).
+  - For reference, the hookless swap uses 40,120 warm / 48,120 cold.
+- Runtime size: 9,738 bytes (limit 24,576).
+- Mutation checks on the 41-test suite: flipping the skew sign fails 10 tests (9 of 40 before the β = α boundary test); removing the per-block cache fails 7 and reproduces the spec §5.4 attack (6,301 → 4,933 pips). Recorded in the README Security section.
+- Spec: A8 now defines the gas budgets on the warm measurement (Tony's decision); the §4.4 event field is renamed `sigmaHPips`. README: Core Features and Goals G3/G4 marked ✅, new Security and Gas sections, Repository Guide line numbers updated.
+
+**Issues**:
+1. The cold measurement shows only about 2,000 gas over warm, which matches one cold read of the hook's state slot. It does not include the roughly 2,500-gas cold-account surcharge that the `vm.cool` documentation suggests should appear. The cause was not investigated; the cold figures are reported as a lower bound.
+2. The cold cached path (5,678) is above 5,000. Tony's decision: budgets apply to the warm measurement, consistent with the 2,093 baseline. The cap stays at 5,000, and both figures are published.
+3. No new Uniswap toolchain issues, so FEEDBACK.md is unchanged.
+
+**Next**: The comparison simulation (M3): trend and mean-reversion price paths, arbitrage and noise flow, StoikovHook vs. a fee-matched static pool (plus 0.05% and 0.30% for reference), at least 20 seeds, results in `docs/simulation/`.
+
+---

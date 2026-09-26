@@ -6,7 +6,7 @@ import {HookMiner} from "@uniswap/v4-periphery/src/utils/HookMiner.sol";
 
 import {BaseScript} from "./base/BaseScript.sol";
 
-import {StoikovHook, STOIKOV_HOOK_FLAGS} from "../src/StoikovHook.sol";
+import {StoikovHook, FeeParams, STOIKOV_HOOK_FLAGS, defaultFeeParams} from "../src/StoikovHook.sol";
 
 /// @notice Mines a CREATE2 salt and deploys StoikovHook at an address that carries its permission flags.
 /// @dev HookMiner may iterate up to 160,444 salts, which exceeds the default script gas limit. Run with:
@@ -16,14 +16,18 @@ import {StoikovHook, STOIKOV_HOOK_FLAGS} from "../src/StoikovHook.sol";
 ///     --gas-limit 100000000000 --disable-block-gas-limit
 contract DeployHookScript is BaseScript {
     function run() public {
+        // The fee parameters are constructor arguments, so they are part of the init code and of the
+        // mined address: changing any of them requires re-mining (spec §2.5).
+        FeeParams memory params = defaultFeeParams();
+
         // STOIKOV_HOOK_FLAGS is the same constant the hook's permissions are checked against,
         // so the mined address always matches getHookPermissions().
-        bytes memory constructorArgs = abi.encode(poolManager);
+        bytes memory constructorArgs = abi.encode(poolManager, params);
         (address hookAddress, bytes32 salt) =
             HookMiner.find(CREATE2_FACTORY, STOIKOV_HOOK_FLAGS, type(StoikovHook).creationCode, constructorArgs);
 
         vm.startBroadcast();
-        StoikovHook hook = new StoikovHook{salt: salt}(poolManager);
+        StoikovHook hook = new StoikovHook{salt: salt}(poolManager, params);
         vm.stopBroadcast();
 
         require(address(hook) == hookAddress, "DeployHookScript: hook address mismatch");

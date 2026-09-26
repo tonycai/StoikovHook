@@ -133,7 +133,7 @@ if block.number > S.bLast:                           # window open, once per blo
     S.feeUp   = clamp(f0 + sv·(Kσ + Kq·d), fmin, fmax)
     S.feeDown = clamp(f0 + sv·(Kσ − Kq·d), fmin, fmax)
     S.bLast, S.tLast, S.tickLast = block.number, block.timestamp, t̄
-    emit FeeWindowUpdated(poolId, t̄, S.R, sv, S.feeUp, S.feeDown)
+    emit FeeWindowUpdated(poolId, t̄, S.R, σ_h, S.feeUp, S.feeDown)
 fee = params.zeroForOne ? S.feeDown : S.feeUp
 return (selector, ZERO_DELTA, fee | OVERRIDE_FEE_FLAG)
 ```
@@ -271,7 +271,7 @@ OpenZeppelin `BaseOverrideFee` (`oz-hooks/fee/BaseOverrideFee.sol`) already has 
 
 ### 4.4 Event
 
-`FeeWindowUpdated(PoolId indexed id, int24 tick, int24 refTick, uint256 sqrtVariance, uint24 feeUp, uint24 feeDown)` is emitted once per window, not once per swap.
+`FeeWindowUpdated(PoolId indexed id, int24 tick, int24 refTick, uint256 sigmaHPips, uint24 feeUp, uint24 feeDown)` is emitted once per window (and once at initialization), not once per swap. `sigmaHPips` is σ_h in pips, rounded down.
 
 ---
 
@@ -340,7 +340,7 @@ A revert inside `beforeSwap` blocks every swap in the pool. The design goal is t
 | A5 | After a scripted jump, the next window's mean fee is higher. With no further price movement it then decays monotonically toward $f_0$ as time passes (`vm.warp`) |
 | A6 | Swaps in the same block see the same `(feeUp, feeDown)`. A same-block round trip followed by a large swap pays the same fee as the large swap alone |
 | A7 | Across fuzzed sequences of $(\Delta t,\ \text{direction},\ \text{size})$, every fee lies in $[f_{\min}, f_{\max}]$ and no swap reverts inside the hook |
-| A8 | Gas measured with Foundry gas snapshots and recorded in `docs/BUILD_LOG.md`. Targets: cached path ≤ 5 000 gas; window-open path ≤ 25 000 gas (hook execution only) |
+| A8 | Gas measured by `test/StoikovHookGas.t.sol` and recorded in `docs/BUILD_LOG.md`. Budgets apply to the **warm** measurement: the same swap in the hooked pool minus the same swap in an identical hookless pool, both touched earlier in the transaction (the methodology of the skeleton's 2,093-gas baseline). Cached path ≤ 5 000 gas; window-open path ≤ 25 000 gas. Cold figures are reported alongside but not budgeted |
 | A9 | The M3 comparison runs deterministically and prints a metrics table for all four pools, the fee-matched baseline included. The result is reported in the README **whichever way it comes out** |
 | A10 | On Sepolia: the hook is deployed at an address whose low 14 bits equal `0x1080`, the source is verified on the explorer, a dynamic-fee pool is initialized, and at least 2 swaps in opposite directions paid different fees. Transaction hashes are recorded |
 
