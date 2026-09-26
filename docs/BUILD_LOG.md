@@ -492,3 +492,29 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Tony runs the broadcast with the keystore. Then record the addresses and transaction hashes, verify on-chain (flags, the `Swap` event fees), verify the source, and fill in README "Deployed Contracts".
 
 ---
+
+## [2026-09-26 13:06 JST] Sepolia deployment checked on chain and verified on Etherscan
+
+**Goal**: After Tony's live broadcast, confirm the deployment from the chain itself, verify the source of all three contracts on Etherscan, and publish the addresses, transactions and fees (M4/A10, goal G2).
+
+**Result**:
+- On chain (Sepolia, 11155111): the deployer's nonce went 0 → 15. All 15 transactions succeeded, each in its own block (11783638–11783655, 12:42–12:46 JST). **5,240,237 gas, 0.00553325 ETH** at 0.94–1.11 gwei.
+- StoikovHook at **`0x67b97620e35DAf13de266F84cAbC8c8d45755080`**: 9,738 bytes of code, low 14 bits `0x1080`, `poolManager()` = the official PoolManager `0xE03A1074…3543`, parameters equal to `defaultFeeParams()`.
+- Pool ID `0xc9b29abec42bf4b8a52989884f4c29586f80c1659e3c6d045568172ce07c00c8`: SHDB `0x075CA8De…a836` / SHDA `0x8041740E…a6cf`, fee `0x800000`, tick spacing 60.
+- Demo swaps, `fee` from the PoolManager's `Swap` event: price up 833 (window 833 / 833); price down **1,987** (window 2,949 / 1,987); price up **2,799** (window 2,799 / 2,067). Opposite directions paid different fees, and each paid its own direction's fee from the window of its block. `previewFees` at block 11783678: 2,185 / 1,663.
+- Bytecode: after `forge clean && forge build`, the compiled runtime is identical to the chain after masking 37 immutable slots, and the creation code is identical to the CREATE2 init code in transaction 5. The tokens' runtime (3,441 bytes) is identical as well.
+- Etherscan: StoikovHook, SHDA and SHDB are all **exact-match verified** with `forge verify-contract`.
+- `remappings.txt`: added `lib/uniswap-hooks/:src/=lib/uniswap-hooks/src/`. StoikovHook's creation and runtime bytecode are unchanged under the default and `sim` profiles. `forge test`: 41/41 pass.
+- Docs: new `docs/deployments/sepolia.md` (all 15 transactions, swap directions and fees, verification steps). README: Deployed Contracts, G2 ✅, Core Features "Sepolia deployment" ✅, Repository Guide and Getting Started. Every `[TBD]` in `docs/DEMO_SCRIPT.md` is filled; only the video link remains. FEEDBACK.md and CLAUDE.md: the verification issue.
+
+**Issues**:
+1. The first StoikovHook verification failed: `Source "src/base/BaseHook.sol" not found`.
+   Root cause: OZ uniswap-hooks imports its own files by root-relative paths (`lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:6`). `forge build` resolves them, but the standard JSON input sent to Etherscan has no remapping for them. Compiling that JSON locally with solc 0.8.30 reproduced the error, and adding the context remapping produced bytecode identical to the chain.
+   Fix: the context remapping above, committed.
+   Correction: on day 1 I tried this remapping to silence the `forge test` message, saw no effect, reverted it, and called the issue cosmetic. That was wrong, because verification needs it. FEEDBACK.md now says so.
+2. Etherscan auto-listed SHDB as a "similar match" to SHDA, with no constructor arguments. It was resubmitted with `--skip-is-verified-check` and is now an exact match.
+3. The two opposite-direction swaps are in different blocks, so part of the gap between 1,987 and 2,799 comes from the window changing. The deployment record says so, and points to the same-window pairs in each `FeeWindowUpdated` event (2,949 / 1,987 and 2,799 / 2,067).
+
+**Next**: Record the demo video and add the link to README "Demo". Then submit.
+
+---

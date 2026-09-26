@@ -9,7 +9,7 @@
 > Built at ETHGlobal Tokyo 2026
 
 > [!NOTE]
-> **Project status: fee model implemented, tested and simulated; Sepolia deployment in progress.** The fee model specified and approved in [`specs/01-design.md`](specs/01-design.md) is implemented in [`src/StoikovHook.sol`](src/StoikovHook.sol). Default parameters are placeholders until calibration.
+> **Project status: fee model implemented, tested and simulated; deployed and source-verified on Sepolia.** The fee model specified and approved in [`specs/01-design.md`](specs/01-design.md) is implemented in [`src/StoikovHook.sol`](src/StoikovHook.sol). Default parameters are placeholders until calibration.
 > Status legend: ✅ Done · 🚧 In progress · 📋 Planned. Anything not marked ✅ is **not** done.
 
 ## Problem
@@ -31,7 +31,7 @@ Each goal is a measurable outcome with a named way to check it. Results are publ
 | # | Goal | How it is verified | Status |
 |---|---|---|---|
 | G1 | **Better LP outcome for the same cost to traders.** Under identical order flow (same price path, same arbitrage and uninformed trades), LPs in the StoikovHook pool end with a higher terminal value, marked to the reference price, than LPs in a static-fee pool charging the same average fee to uninformed traders. Results against static 0.05% and 0.30% pools are reported alongside. | Deterministic Foundry simulation comparing four pools ([method and data](docs/simulation/README.md)) | ✅ Met, with a small effect: +0.160 ± 0.105 bps against the fee-matched pool, positive in 20/20 seeds, t = 6.8, recovering ≈ 2.2% of the LP's loss versus HODL ([results](#results)) |
-| G2 | **Direction-aware fees on a live network.** On Sepolia, swaps in opposite directions pay different fees, as recorded in the `fee` field of the PoolManager's own `Swap` event. | Published transaction hashes, verified hook source | 📋 Planned |
+| G2 | **Direction-aware fees on a live network.** On Sepolia, swaps in opposite directions pay different fees, as recorded in the `fee` field of the PoolManager's own `Swap` event. | Published transaction hashes, verified hook source | ✅ Met: in consecutive blocks, a price-down swap paid 1,987 pips and a price-up swap paid 2,799 pips; each block's `FeeWindowUpdated` event shows both sides (2,949 / 1,987 and 2,799 / 2,067). Source verified on Etherscan ([deployment record](docs/deployments/sepolia.md)) |
 | G3 | **The hook never blocks trading.** Every fee stays within [0.01%, 1%], and no swap reverts inside the hook. | Fuzz tests (≥ 1,000 runs) over random swap sequences and time gaps | ✅ Done (see [Security](#security)) |
 | G4 | **Low gas overhead.** ≤ 5,000 gas for swaps that reuse the block's cached fees, and ≤ 25,000 gas for the first swap of a block. | Foundry gas snapshots, recorded in the build log | ✅ Done, warm measurement (see [Gas](#gas)) |
 
@@ -108,7 +108,7 @@ sequenceDiagram
 | Per-block fee snapshot | Fees are fixed for the whole block, so trading back and forth within a block cannot lower your own fee. | ✅ Done |
 | Test suite | 35 hook tests: integration tests through PoolManager, fee-math unit tests, fuzz tests (1,000–5,000 runs) and gas tests. | ✅ Done |
 | Comparison simulation | A deterministic Foundry simulation (20 seeds × 400 blocks) that runs identical arbitrage and noise flow through StoikovHook, a fee-matched static pool and static 0.05% / 0.30% pools, and reports LP − HODL, fee income and arbitrage profit. | ✅ Done |
-| Sepolia deployment | Hook deployed at a mined address with flags `0x1080`, source verified, and a demo pool with swaps in both directions. | 📋 Planned |
+| Sepolia deployment | Hook deployed at a mined address with flags `0x1080`, source verified, and a demo pool with swaps in both directions. | ✅ Done ([record](docs/deployments/sepolia.md)) |
 
 ## Non-Goals
 
@@ -228,8 +228,8 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 | Fee formula: volatility premium, inventory skew, clamps | `src/StoikovHook.sol:L260-L286` — f = clamp(f0 + σ_h·(α ± β·q̂), fmin, fmax) | ✅ Done |
 | Estimator update at window open (EWMA volatility, EMA reference) | `src/StoikovHook.sol:L222-L254` — elapsed time floored at 1 s, tick change winsorized at ±C | ✅ Done |
 | Parameters and deploy-time validation | `src/StoikovHook.sol:L22-L69` — `FeeParams` and the defaults with their rationale; `src/StoikovHook.sol:L290-L299` — invariants, including β ≤ α | ✅ Done |
-| Sepolia demo deployment | `script/sepolia/DeployDemo.s.sol` — test tokens, hook at a mined address, dynamic-fee pool and liquidity, three demo swaps in separate blocks | ✅ Rehearsed on a Sepolia fork; live broadcast 🚧 |
-| Address mining and CREATE2 deployment | `script/00_DeployHook.s.sol:L18-L35` — mines with the shared flag constant and the encoded fee parameters, deploys via CREATE2 | ✅ Done (local anvil); Sepolia 🚧 |
+| Sepolia demo deployment | `script/sepolia/DeployDemo.s.sol:L48-L83` — mines the salt (L54-L57), deploys the hook via CREATE2 (L62), then the pool and three demo swaps in separate blocks (L65-L73); `script/sepolia/DeployDemo.s.sol:L103-L122` — pool initialization and full-range mint in one multicall | ✅ Deployed on Sepolia ([record](docs/deployments/sepolia.md)) |
+| Address mining and CREATE2 deployment | `script/00_DeployHook.s.sol:L18-L35` — mines with the shared flag constant and the encoded fee parameters, deploys via CREATE2 | ✅ Done (local anvil). The Sepolia hook was deployed by the demo script above, which mines the same way |
 | Integration tests through PoolManager | `test/StoikovHook.t.sol` — permissions and initialization (L30-L83), charged fee vs. stored fee (L85-L113), skew direction (L115-L145), volatility response (L147-L170), per-block caching (L172-L212), fuzzed swap sequences (L214-L237) | ✅ Done |
 | Fee-math unit and fuzz tests | `test/StoikovHookFees.t.sol` — skew (L29-L78), volatility (L80-L104), bounds for any input and parameters (L106-L127), window update (L129-L196), parameter validation (L198-L277) | ✅ Done |
 | Gas tests | `test/StoikovHookGas.t.sol` | ✅ Done |
@@ -295,16 +295,35 @@ forge script script/sepolia/DeployDemo.s.sol --rpc-url "$SEPOLIA_RPC_URL" \
   --gas-limit 100000000000 --disable-block-gas-limit
 ```
 
-`--slow` sends each transaction only after the previous one is mined, so every swap lands in its own block and opens its own fee window. `--with-gas-price 5gwei` caps the fee per gas. The script was rehearsed on an anvil fork of Sepolia: 15 transactions, about 5.2M gas. 🚧 The live Sepolia deployment is pending.
+`--slow` sends each transaction only after the previous one is mined, so every swap lands in its own block and opens its own fee window. `--with-gas-price 5gwei` caps the fee per gas. The live Sepolia run took 15 transactions, 5,240,237 gas and 0.0055 ETH. The transactions, fees and verification steps are in [`docs/deployments/sepolia.md`](docs/deployments/sepolia.md).
 
 ## Deployed Contracts
 
-🚧 In progress. Nothing is deployed yet.
+Deployed on Sepolia on 2026-09-26. All three contracts have exact-match verified source on Etherscan. Full record, including all 15 transactions and the fee charged by each demo swap: [`docs/deployments/sepolia.md`](docs/deployments/sepolia.md).
 
-| Network | Contract | Address | Explorer |
+| Network | Contract | Address | Source |
 |---|---|---|---|
-| Sepolia (11155111) | StoikovHook | 🚧 | 🚧 |
-| Sepolia (11155111) | Demo pool (PoolId) | 🚧 | 🚧 |
+| Sepolia (11155111) | StoikovHook | [`0x67b97620e35DAf13de266F84cAbC8c8d45755080`](https://sepolia.etherscan.io/address/0x67b97620e35DAf13de266F84cAbC8c8d45755080#code) | ✅ Verified |
+| Sepolia (11155111) | Demo token SHDB (`MockERC20`, pool `currency0`) | [`0x075CA8DefA53cbB9D9933342B784D13629f7a836`](https://sepolia.etherscan.io/address/0x075CA8DefA53cbB9D9933342B784D13629f7a836#code) | ✅ Verified |
+| Sepolia (11155111) | Demo token SHDA (`MockERC20`, pool `currency1`) | [`0x8041740E5dee82B7d5C853a722D2DDe593a6a6cf`](https://sepolia.etherscan.io/address/0x8041740E5dee82B7d5C853a722D2DDe593a6a6cf#code) | ✅ Verified |
+
+Demo pool, on the official Sepolia PoolManager [`0xE03A1074c86CFeDd5C142C4F04F1a1536e203543`](https://sepolia.etherscan.io/address/0xE03A1074c86CFeDd5C142C4F04F1a1536e203543):
+
+| Field | Value |
+|---|---|
+| Pool ID | `0xc9b29abec42bf4b8a52989884f4c29586f80c1659e3c6d045568172ce07c00c8` |
+| Pool key | SHDB / SHDA, fee `0x800000` (dynamic), tick spacing 60, hooks = StoikovHook |
+| Created in | [`0xb8f97c7d…526755cd`](https://sepolia.etherscan.io/tx/0xb8f97c7d0272d566de587eefde49775ff8350ab69d4f05b1a8e69bd9526755cd) (initialize at price 1 and mint 1,000 of each token, full range) |
+
+Demo swaps, each the first swap of its block. `fee` is from the PoolManager's `Swap` event, in pips (1 pip = 0.0001%):
+
+| Swap | Direction | Window fees, price up / price down | `fee` charged |
+|---|---|---|---|
+| [`0xa653e0f4…d2051fc1`](https://sepolia.etherscan.io/tx/0xa653e0f454b76c7885321bca6c23cbaf02fceffd3fb117b6327f9816d2051fc1) | Price up, 5 SHDA in | 833 / 833 | 833 |
+| [`0x266a7eaa…e620d0a7`](https://sepolia.etherscan.io/tx/0x266a7eaa4f6f8888b6047174dd66cc1b3d1f2dcd4d60484b0ee3bb47e620d0a7) | Price down, 1 SHDB in | 2,949 / 1,987 | **1,987** |
+| [`0x316450c5…8903d574`](https://sepolia.etherscan.io/tx/0x316450c5cbe165e81fe51cef36a0a0d44d9d63a1c4514eb86dd18d0b8903d574) | Price up, 1 SHDA in | 2,799 / 2,067 | **2,799** |
+
+The swap sizes keep every fee below the 1% cap, so the demo shows the skew rather than the clamp. The cap is covered by tests (see [Security](#security)).
 
 ## Demo
 
