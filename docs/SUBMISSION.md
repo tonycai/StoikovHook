@@ -52,7 +52,14 @@ Contributions back to the stack, all in `FEEDBACK.md` with `file:line` evidence 
 
 ## 5. AI usage
 
-StoikovHook was built by one person, Tony Cai, with Claude Code as the execution layer under a spec-first workflow. The agent drafted the design spec; wrote the contract, tests, simulation, scripts and docs; and ran every build, test and on-chain check. It proposed the oracle-free reference price and per-block fee caching, which the author approved. The author made the decisions: the concept and its goal, the engineering constraints, block-number fee windows instead of the agent's proposed timestamps, the fee-matched baseline, the simulation requirements, the τR protocol and the call to keep 900 s, and the parameter defaults. Every change to fee computation, pool state or funds was reviewed as a diff before it was committed, and the author ran the live Sepolia broadcast. Details are in `AI_USAGE.md`, with a per-task record in `docs/BUILD_LOG.md`.
+StoikovHook was built by one person, Tony Cai, in three layers: Claude (chat) for planning and review, Claude Code for execution, and the author for final decisions and sign-off.
+
+- **What the AI did.** Claude Code drafted the spec; wrote the contract, tests, simulation, scripts and docs; and ran every build, test and on-chain check.
+- **Proposed by the AI, approved by the author.** The oracle-free reference price, per-block fee caching, the fee-matched static baseline, informed and uninformed order flow in the simulation, the placeholder parameter values and the stored fallback fee.
+- **The author's decisions.** The concept and its goal; the engineering constraints; fee windows keyed by block number rather than timestamp; no volatility-independent skew term; the simulation requirements (deterministic and local, a trend and a mean-reverting segment, at least 20 seeds, results published either way); a pre-registered rule and a holdout set for calibrating τR; and overriding that rule to keep τR = 900 s after an out-of-distribution diagnostic.
+- **Done by the author personally.** Reviewing every diff that touches fee computation, pool state or funds; keystore and key management; the live Sepolia broadcast; and contact with the Uniswap team.
+
+Each attribution is sourced in `AI_USAGE.md`, and `docs/BUILD_LOG.md` is the per-task record.
 
 ## 6. Future
 

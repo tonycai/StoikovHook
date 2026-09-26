@@ -612,3 +612,42 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Tony reviews `docs/SUBMISSION.md`, uploads the PNGs and fills in the form. Then record the demo video and add the link to README "Demo".
 
 ---
+
+## [2026-09-26 13:39 JST] AI attribution checked against the build log
+
+**Goal**: Rewrite the AI usage statement in `docs/SUBMISSION.md`, `AI_USAGE.md` and README "Built With AI" to one structure, and check every attribution against this log. Where the log differs from the requested wording, the log wins.
+- The structure: a three-layer workflow, what the AI did, what it proposed and the author approved, the author's decisions, and what the author did personally.
+- Also reword the last sentence of the submission's Results paragraph.
+
+**Result**:
+- Three layers in all three documents: Claude (chat) for planning and review, Claude Code for execution, the author for final decisions and sign-off.
+- Proposed by the AI, approved by the author, each with its source in `AI_USAGE.md` §3:
+  - the oracle-free reference price (spec draft, 2026-09-25 21:26);
+  - per-block fee caching (spec draft, issue 2);
+  - the fee-matched baseline (2026-09-25 21:35, "pending Tony's review"; spec §7 decision 3);
+  - informed and uninformed order flow (first spec draft, M3, commit `7f27177`);
+  - the placeholder parameter values (spec §2.7; §7 decision 1);
+  - the stored fallback fee (spec draft, issue 1; §7 decision 5).
+- The author's decisions:
+  - the concept and goal, and the engineering constraints;
+  - block-number windows (§7 decision 4);
+  - no volatility-independent skew term (§7 decision 2);
+  - the simulation requirements (2026-09-26 11:06 Goal);
+  - the τR protocol with a holdout set (2026-09-26 11:22 Goal);
+  - overriding it to keep 900 s ("Decision (Tony)", 2026-09-26 11:22).
+- Done by the author personally: diff review, keystore and keys, the live Sepolia broadcast (2026-09-26 13:06), and contact with the Uniswap team (2026-09-26 13:18).
+- Submission Results, last sentence: "It does not lower LVR in absolute terms; what falls instead is the arbitrageur's share of the value it extracts, from 32.9% to 30.3%." The Description is now 245 words.
+- The previous request's items (Future, the tech stack, the 1600 px PNGs) were already done in `aa2f124` and `3342650`.
+
+**Issues**:
+1. Three attributions in the request differ from the log, so the log's version was used:
+   - **The two kinds of order flow** were requested as an author decision. The first spec draft (`7f27177`, M3) already had an arbitrageur and scripted uninformed flow, and the spec brief did not mention order flow. They are now listed as proposed by the AI. The author approved the spec and then made both flows a requirement of the simulation task.
+   - **The parameter defaults** were requested as an author decision. The values are the agent's placeholders from spec §2.7; the author's decision (§7 decision 1) was to adopt them. They are now listed as proposed by the AI.
+   - **The stored fallback fee** was listed as an author decision in the previous `AI_USAGE.md`. The agent proposed it in the spec draft (issue 1), and the author kept it in review (§7 decision 5). It is now listed as proposed by the AI.
+2. Two author decisions recorded in the log were missing from the requested list: no volatility-independent skew term, and the simulation requirements. They were added to all three documents so the lists match.
+3. The Claude (chat) layer is not recorded in this log, which covers Claude Code sessions only. Its role rests on the author's description.
+4. The previous `AI_USAGE.md` said Claude (chat) drafted the design spec. The log shows Claude Code wrote it (2026-09-25 21:26, commit `7f27177`). Corrected.
+
+**Next**: Tony reviews the attribution changes. Then record the demo video and add the link to README "Demo".
+
+---

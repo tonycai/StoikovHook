@@ -332,7 +332,7 @@ The swap sizes keep every fee below the 1% cap, so the demo shows the skew rathe
 
 ## Built With AI
 
-This project was built with Claude Code CLI as the execution layer, under a spec-driven workflow. Everything AI-assisted is traceable in this repository:
+Three layers: **Claude** (chat) for planning and review, **Claude Code** CLI for execution, and the author for final decisions and sign-off. Everything AI-assisted is traceable in this repository:
 
 | Artifact | Location | What it shows |
 |---|---|---|
@@ -341,19 +341,29 @@ This project was built with Claude Code CLI as the execution layer, under a spec
 | Build log | [`docs/BUILD_LOG.md`](docs/BUILD_LOG.md) | Timestamped record of every task: goal, outcome, problems hit, resolution |
 | Commit history | `git log` | Small incremental commits, each tied to a working state |
 
-Human review gates: every change to fee computation, hook permissions or anything that touches funds is reviewed diff by diff before it is merged.
+**What the AI did.** Claude Code drafted the spec; wrote the contract, tests, simulation, scripts and docs; and ran every build, test and on-chain check.
 
-Decisions made by the author:
+**Proposed by the AI, approved by the author:**
 
-- **Project concept**: applying Avellaneda–Stoikov inventory and volatility logic to Uniswap v4 dynamic fees, so that arbitrageurs keep a smaller share of LPs' adverse-selection loss (LVR).
+- The oracle-free reference price (an EMA of the pool's own tick).
+- Per-block fee caching.
+- The fee-matched static pool as the comparison baseline.
+- Informed (arbitrage) and uninformed (noise) order flow in the simulation.
+- The placeholder parameter values, and the stored fallback fee.
+
+**Decisions made by the author:**
+
+- **Project concept and goal**: applying Avellaneda–Stoikov inventory and volatility logic to Uniswap v4 dynamic fees, so that arbitrageurs keep a smaller share of LPs' adverse-selection loss (LVR).
 - **Engineering constraints**: pinned compiler settings for deterministic CREATE2 hook addresses, keystore-only key handling, spec-first development and small commits (see [`CLAUDE.md`](CLAUDE.md)).
 - **Block-number fee windows**, chosen over the agent's proposed timestamp windows because block producers can nudge timestamps.
-- **The fee-matched static pool** as the comparison baseline.
-- **The parameter defaults.**
+- **No volatility-independent skew term**, to keep the MVP formula minimal.
+- **Simulation requirements**: deterministic and local, a trend and a mean-reverting segment, at least 20 seeds, results published either way.
+- **The τR calibration protocol**: a rule fixed before the first run, with a holdout set of seeds.
+- **Keeping τR = 900 s**, overriding that rule after the out-of-distribution reversal diagnostic.
 
-The agent proposed, and the author approved: the oracle-free reference price and per-block fee caching. Every spec decision is recorded in [`specs/01-design.md`](specs/01-design.md) §7.
+**Done by the author personally:** reviewing every diff that touches fee computation, pool state or funds before it is committed; keystore and key management; the live Sepolia broadcast; and contact with the Uniswap team.
 
-The full breakdown of what the agent did and what the author did is in [`AI_USAGE.md`](AI_USAGE.md).
+Every spec decision is recorded in [`specs/01-design.md`](specs/01-design.md) §7. The full breakdown, with the source of each attribution, is in [`AI_USAGE.md`](AI_USAGE.md).
 
 ## Author
 
