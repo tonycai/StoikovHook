@@ -790,3 +790,23 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Live judging at 09:30 JST on 2026-09-27. Add the showcase link to README "Demo" once ETHGlobal publishes it.
 
 ---
+
+## [2026-09-26 19:20 JST] ETHGlobal showcase page live
+
+**Goal**: The public showcase page is live. Link it from the repository. Documentation only; the code stays frozen.
+
+**Result**:
+- Showcase page: https://ethglobal.com/showcase/stoikovhook-fpcu6
+  - It returns HTTP 200, with the title "StoikovHook | ETHGlobal".
+  - It embeds the demo video, streamed from Mux.
+- README "Demo": now links the showcase page and says the demo video (2 min 44 s) can be watched there. It replaces the "link to follow" note.
+- `docs/SUBMISSION.md`: the showcase link at the top.
+- `docs/DEMO_SCRIPT.md`: the "link to follow" note now points to the showcase page.
+- GitHub repository homepage set with `gh repo edit --homepage`, so it shows in the About panel. The description is unchanged.
+- The README line numbers cited in other docs are unchanged; the Demo section comes after all of them.
+
+**Issues**: None.
+
+**Next**: Live judging at 09:30 JST on 2026-09-27.
+
+---
