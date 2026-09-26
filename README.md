@@ -329,7 +329,7 @@ The swap sizes keep every fee below the 1% cap, so the demo shows the skew rathe
 
 ## Demo
 
-🚧 In progress. The video link will be added here.
+The demo video (2 min 44 s) was uploaded with the ETHGlobal submission on 2026-09-26. The link to the public showcase page will be added here once ETHGlobal publishes it. Until then, [`docs/deployments/sepolia.md`](docs/deployments/sepolia.md) has the live Sepolia deployment, and the demo script is in [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 
 ## Built With AI
 

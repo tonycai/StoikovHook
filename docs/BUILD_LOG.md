@@ -688,3 +688,21 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Tony checks the logo at 512 and 64 and the cover. Then record the demo video and add the link to README "Demo".
 
 ---
+
+## [2026-09-26 15:15 JST] ETHGlobal submission
+
+**Goal**: Submit StoikovHook to ETHGlobal Tokyo 2026.
+
+**Result**:
+- Submitted to ETHGlobal at 15:15 JST.
+- Submission type: Top 10 Finalist & Partner Prizes. Track: Building from Scratch.
+- Partner prizes applied for: Uniswap Foundation only.
+- Demo video: 2 min 44 s, 1920×1188, 30 fps, uploaded directly to the submission form.
+- Public showcase link: not available yet. The temporary address the system generated contains "undefined" and does not work, so it is not recorded anywhere in the repository.
+- From this point, the contract code, deployment scripts and tests are frozen. Only documentation changes.
+
+**Issues**: The public showcase link is pending.
+
+**Next**: Add the showcase link to README "Demo" once ETHGlobal publishes it. Prepare for live judging at 09:30 JST on 2026-09-27.
+
+---

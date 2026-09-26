@@ -25,7 +25,9 @@ Conversations with Tony may be in Chinese. Anything that lands in the repository
 
 ## Project Context
 
-StoikovHook is a Uniswap v4 hook that sets dynamic swap fees using the Avellaneda–Stoikov market-making model. It is an ETHGlobal Tokyo 2026 entry in the Start From Scratch track, targeting the Uniswap Foundation "Best Uniswap Stack Contribution" prize. The submission deadline is 2026-09-27 09:00 JST.
+StoikovHook is a Uniswap v4 hook that sets dynamic swap fees using the Avellaneda–Stoikov market-making model. It is an ETHGlobal Tokyo 2026 entry in the Building from Scratch track, targeting the Uniswap Foundation "Best Uniswap Stack Contribution" prize.
+
+**Submitted on 2026-09-26 at 15:15 JST. The contract code (`src/`), deployment scripts (`script/`) and tests (`test/`) are frozen: do not modify them. Only documentation may change.**
 
 The design spec is `specs/01-design.md`. The implementation must follow it and must not start until Tony has approved the spec.
 
