@@ -54,9 +54,42 @@ Contributions back to the stack, all in `FEEDBACK.md` with `file:line` evidence 
 
 StoikovHook was built by one person, Tony Cai, with Claude Code as the execution layer under a spec-first workflow. The agent drafted the design spec; wrote the contract, tests, simulation, scripts and docs; and ran every build, test and on-chain check. It proposed the oracle-free reference price and per-block fee caching, which the author approved. The author made the decisions: the concept and its goal, the engineering constraints, block-number fee windows instead of the agent's proposed timestamps, the fee-matched baseline, the simulation requirements, the τR protocol and the call to keep 900 s, and the parameter defaults. Every change to fee computation, pool state or funds was reviewed as a diff before it was committed, and the author ran the live Sepolia broadcast. Details are in `AI_USAGE.md`, with a per-task record in `docs/BUILD_LOG.md`.
 
+## 6. Future
+
+StoikovHook is an unaudited testnet prototype. The next steps follow from its known limitations:
+
+- **Calibrate across scenarios.** Only τR has been calibrated, and on a single price generator; the other defaults are placeholders. Next is a Monte Carlo sweep over α, β, h, τσ and τR on paths with jumps, repeated trend reversals and regime switches, reporting LP PnL against LVR.
+- **Adaptive τR.** No fixed reference memory was best in both regimes tested, so a τR that adapts to the regime is the next experiment.
+- **Fee-sensitive order flow.** The simulation assumes regular traders ignore fees. Adding routing to competing pools, concentrated liquidity and arbitrage gas costs would test whether the gain survives.
+- **Size-aware fees.** Charging the skew averaged over a swap's price path would close the "cross the reference, then trade big" gap.
+- **Audit before mainnet**, and retune the 12-second horizon for each chain.
+
+## 7. Tech stack
+
+| Category | Used in this project |
+|---|---|
+| Ethereum developer tools | Foundry (forge, cast, anvil) |
+| Blockchain networks | Ethereum Sepolia |
+| Programming languages | Solidity 0.8.30; Python 3.9 (figures only) |
+| Smart contract libraries | Uniswap v4-core, Uniswap v4-periphery (HookMiner), OpenZeppelin uniswap-hooks v1.1.0, Solady v0.1.26, Permit2, hookmate, forge-std |
+| Sponsor technology | Uniswap v4 hooks (dynamic fees) |
+| Other | Etherscan (source verification), matplotlib 3.9.4 (figures), Mermaid (diagrams), GitHub |
+| AI tools | Claude Code |
+| Not used | No frontend or web framework, no database, no oracle, no indexer |
+
+## Images
+
+1600-pixel-wide PNGs in `docs/figures/png/`, generated with the SVGs by `python3 script/plots/make_figures.py`. Suggested upload order, cover first:
+
+1. `fee-curve.png` (cover): the whole mechanism in one picture
+2. `fee-timeseries.png`: the two fees during one simulated run
+3. `lp-performance.png`: LP outcome over 20 seeds
+4. `attack-defense.png`: the same-block round trip, with and without the cache
+5. `ref-tau-sensitivity.png`: the τR calibration
+
 ## Sources for Every Number
 
-Lengths: short description 99 characters (limit 100); description 242 words; how it's made 299 words.
+Lengths: short description 99 characters (limit 100); description 242 words; how it's made 299 words; future 149 words.
 
 | Number | Used in | Source |
 |---|---|---|
@@ -78,3 +111,7 @@ Lengths: short description 99 characters (limit 100); description 242 words; how
 | Reversal scenario: 3600 s vs. 900 s −0.117 ± 0.062 bps, t = −8.5 | 3 | `docs/simulation/README.md:102` |
 | uniswap-hooks v1.1.0 | 4 | `README.md:215` |
 | Hook `0x67b97620…5080`; swap fees 1,987 and 2,799 pips | 4 | `README.md:307`, `README.md:324-325`; `docs/deployments/sepolia.md:17`, `docs/deployments/sepolia.md:84-85` |
+| 12-second horizon h | 6 | `src/StoikovHook.sol:L55-L57`; `README.md` fee-curve figure title |
+| Solidity 0.8.30; uniswap-hooks v1.1.0; Solady v0.1.26 | 7 | `README.md:213`, `README.md:215`, `README.md:217`; `foundry.toml`; `foundry.lock` |
+| Python 3.9; matplotlib 3.9.4 | 7 | `script/plots/requirements.txt`; plotting environment `python3 --version` = 3.9.6 |
+| PNGs 1600 px wide | Images | `script/plots/make_figures.py`, `PNG_WIDTH` |
