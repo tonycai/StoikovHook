@@ -14,3 +14,7 @@ node_modules/
 
 # macOS
 .DS_Store
+
+# Python (figure scripts)
+.venv/
+__pycache__/

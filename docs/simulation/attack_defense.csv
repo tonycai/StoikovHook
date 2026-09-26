@@ -1,0 +1,9 @@
+variant,step,block,zero_for_one,amount_in_tokens,fee_pips
+with_cache,push_price_up,N,false,1,846
+without_cache,push_price_up,N,false,1,845
+with_cache,window_open_fee_up,N+1,,,6302
+with_cache,window_open_fee_down,N+1,,,2493
+with_cache,round_trip_sell,N+1,true,2,2493
+with_cache,large_buy,N+1,false,5,6302
+without_cache,round_trip_sell,N+1,true,2,2493
+without_cache,large_buy,N+1,false,5,4933

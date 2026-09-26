@@ -22,7 +22,7 @@ A professional market maker on a centralized exchange does not quote passively. 
 
 StoikovHook gives a v4 pool both tools. For every block it computes two fees from the pool's own on-chain state: one for swaps that push the price up and one for swaps that push it down. A volatility premium raises both fees when the market is moving. An inventory skew charges more to swaps that push the pool further from its recent equilibrium and less to swaps that bring it back. The fee is applied per swap through v4's dynamic-fee override. There is no oracle, no admin key, and the hook never takes custody of tokens.
 
-In simulation, the effect is to move more of the value that arbitrage extracts to LPs: arbitrageurs pay higher fees, and uninformed traders pay the same average fee. The gain over a comparable static-fee pool is consistent but small; see [Simulation Results](#simulation-results) and [Limitations](#limitations).
+In simulation, the effect is to move more of the value that arbitrage extracts to LPs: arbitrageurs pay higher fees, and uninformed traders pay the same average fee. The gain over a comparable static-fee pool is consistent but small; see [Simulation Results](#results) and [Limitations](#limitations).
 
 ## Goals
 
@@ -30,7 +30,7 @@ Each goal is a measurable outcome with a named way to check it. Results are publ
 
 | # | Goal | How it is verified | Status |
 |---|---|---|---|
-| G1 | **Better LP outcome for the same cost to traders.** Under identical order flow (same price path, same arbitrage and uninformed trades), LPs in the StoikovHook pool end with a higher terminal value, marked to the reference price, than LPs in a static-fee pool charging the same average fee to uninformed traders. Results against static 0.05% and 0.30% pools are reported alongside. | Deterministic Foundry simulation comparing four pools ([method and data](docs/simulation/README.md)) | ✅ Met, with a small effect: +0.160 ± 0.105 bps against the fee-matched pool, positive in 20/20 seeds, t = 6.8, recovering ≈ 2.2% of the LP's loss versus HODL ([results](#simulation-results)) |
+| G1 | **Better LP outcome for the same cost to traders.** Under identical order flow (same price path, same arbitrage and uninformed trades), LPs in the StoikovHook pool end with a higher terminal value, marked to the reference price, than LPs in a static-fee pool charging the same average fee to uninformed traders. Results against static 0.05% and 0.30% pools are reported alongside. | Deterministic Foundry simulation comparing four pools ([method and data](docs/simulation/README.md)) | ✅ Met, with a small effect: +0.160 ± 0.105 bps against the fee-matched pool, positive in 20/20 seeds, t = 6.8, recovering ≈ 2.2% of the LP's loss versus HODL ([results](#results)) |
 | G2 | **Direction-aware fees on a live network.** On Sepolia, swaps in opposite directions pay different fees, as recorded in the `fee` field of the PoolManager's own `Swap` event. | Published transaction hashes, verified hook source | 📋 Planned |
 | G3 | **The hook never blocks trading.** Every fee stays within [0.01%, 1%], and no swap reverts inside the hook. | Fuzz tests (≥ 1,000 runs) over random swap sequences and time gaps | ✅ Done (see [Security](#security)) |
 | G4 | **Low gas overhead.** ≤ 5,000 gas for swaps that reuse the block's cached fees, and ≤ 25,000 gas for the first swap of a block. | Foundry gas snapshots, recorded in the build log | ✅ Done, warm measurement (see [Gas](#gas)) |
@@ -133,6 +133,10 @@ Picture the pool as a currency-exchange booth that posts two prices, one for buy
 4. **One price list per block.** Both fees are set at the first trade of each block and stay fixed until the next block. Trading back and forth within a block therefore cannot move your own fee.
 5. **Always a floor and a cap.** Fees never go below a minimum or above a maximum (defaults 0.01% and 1%), so the pool stays usable even in a crash.
 
+![Fee as a function of inventory skew, for three volatility levels](docs/figures/fee-curve.svg)
+
+*The two directions share one fee when the pool sits at its reference (q̂ = 0) and split apart as it moves away: the side that extends the move pays more. Higher volatility lifts both sides. Computed from the contract's formula and `defaultFeeParams()`, not from simulation.*
+
 The math behind each step, and why it follows the Avellaneda–Stoikov model, is in [`specs/01-design.md`](specs/01-design.md) §2.
 
 ## Security
@@ -146,10 +150,14 @@ What the tests guarantee, and the evidence that the design choices matter:
   | Mutation | Tests that fail (of 41) | What it shows |
   |---|---|---|
   | Flip the sign of the inventory skew | 10 (9 of 40 before the β = α boundary test was added) | The skew-direction tests and all three fuzz invariants catch a reversed skew. |
-  | Remove per-block caching (recompute fees on every swap) | 7 | Reproduces the attack in spec §5.4: a round trip within one block lowers a large swap's fee from 6,301 to 4,933 pips. This is direct evidence that the cache is required. |
+  | Remove per-block caching (recompute fees on every swap) | 7 | Reproduces the attack in spec §5.4: after a round trip within one block, the large buy pays 4,933 pips instead of the 6,302 it pays with the cache. This is direct evidence that the cache is required. |
 
 - **Minimal trust surface.** Only PoolManager can call the hook. There is no owner, no mutable parameter, no oracle and no token custody. The hook registers no liquidity callbacks, so LPs can always withdraw.
 - **Known limitations** are listed in [spec §5.5](specs/01-design.md#55-known-limitations).
+
+![Fee paid by a large buy after a same-block round trip, with and without the per-block cache](docs/figures/attack-defense.svg)
+
+*With the per-block cache, the large buy pays the price-up fee posted when the block's fee window opened, however the attacker trades first. Without it, a cheap sell through the reference turns the next buy into a "rebalancing" trade, and the fee drops by 22%. The data comes from `test/simulation/AttackDefense.t.sol`, which runs the same sequence against StoikovHook and a test-only mutant without the cache.*
 
 ## Gas
 
@@ -165,7 +173,7 @@ Extra gas StoikovHook adds to a swap, measured by [`test/StoikovHookGas.t.sol`](
 - **Cold**: storage is first marked untouched with `vm.cool`. The extra 2,000 gas is the cold read of the pool's state slot, an inherent cost for any hook that keeps per-pool state. Treat the cold figures as a lower bound: the first call to the hook address in a real transaction also pays about 2,500 gas for cold account access, which this measurement does not capture.
 - **Relative cost**: about +9% on the cached path and +37% on the first swap of a block, compared with the hookless swap's execution gas. A full transaction also pays the 21,000-gas base cost and calldata, so the share of the total is smaller.
 
-## Simulation Results
+## Results
 
 A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, then a mean-reverting segment), with identical arbitrage and noise flow in every pool. Run it with `FOUNDRY_PROFILE=sim forge test -vv`. The full method, per-seed data and caveats are in [`docs/simulation/README.md`](docs/simulation/README.md).
 
@@ -180,13 +188,25 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 - **Mechanism:** StoikovHook moves more of the value that arbitrage extracts to LPs. The arbitrageur pays +0.175 bps more in fees; uninformed traders pay the same (difference 0.000 ± 0.001 bps).
 - **Where the gain comes from:** the trend segment (+0.179 bps of arbitrage fees, positive in 20 of 20 seeds). The mean-reversion segment shows no gain (−0.004 ± 0.024).
 
+![LP outcome, arbitrage profit and the same-seed difference across 20 seeds](docs/figures/lp-performance.svg)
+
+*Read panel (c) first. Within each seed, StoikovHook beats the fee-matched control every time, by a small amount. Panel (a) hides this because each price path's impermanent loss moves all four pools together. Panel (b) shows why static 0.05% does worst: arbitrage profit there is nearly twice as large.*
+
+![One simulated run: true price, pool price and the two fees over 400 blocks](docs/figures/fee-timeseries.svg)
+
+*During the trend, the fee on swaps that continue the move stays well above the fee on swaps that reverse it. After the trend ends, the gap closes only slowly, because the reference price is a slow average; that lag is why the mean-reversion segment shows no gain. Seed 0 was fixed before any results existed, and its gain is below the median.*
+
 ## Limitations
 
 - **Uninformed flow does not react to fees in the model.** That is why the static 0.30% pool has the best absolute LP − HODL: it charges uninformed traders more and loses no volume. In reality, higher fees push volume to other pools, which is why every claim here is made against the fee-matched pool.
 - **StoikovHook does not lower LVR in absolute terms.** The arbitrageur's profit is not lower; it is 1.6% higher. What falls is its share of the value it extracts, from 32.9% to 30.3%. This project does not claim to reduce the absolute size of LVR.
 - **The gain appears only in the trend segment.** In the mean-reversion segment the effect is zero, because the slow reference price still lags the end of the trend, so reversal-direction arbitrage gets the discount.
 - **Parameters are calibrated on a single type of price generator.** The τR experiment ([details](docs/simulation/README.md#calibration-experiment-reference-memory-τr)) shows that the best memory depends on the regime, and real markets switch regimes in more complex ways.
-- **One stylized scenario with uncalibrated default parameters.** The arbitrageur has no gas cost or latency, there is a single full-range LP, and there are no competing venues. See [`docs/simulation/README.md`](docs/simulation/README.md#limitations) and [spec §5.5](specs/01-design.md#55-known-limitations).
+- **One stylized scenario with default parameters.** The arbitrageur has no gas cost or latency, there is a single full-range LP, and there are no competing venues. See [`docs/simulation/README.md`](docs/simulation/README.md#limitations) and [spec §5.5](specs/01-design.md#55-known-limitations).
+
+![LP gain over the fee-matched control as a function of the reference memory τR, in two scenarios](docs/figures/ref-tau-sensitivity.svg)
+
+*The best reference memory depends on the regime. A long memory wins when a trend persists and loses more when it reverses. The default of 900 s is the most robust of the values tested, not the best in either scenario alone.*
 
 ## Tech Stack
 
@@ -212,6 +232,8 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 | Integration tests through PoolManager | `test/StoikovHook.t.sol` — permissions and initialization (L30-L83), charged fee vs. stored fee (L85-L113), skew direction (L115-L145), volatility response (L147-L170), per-block caching (L172-L212), fuzzed swap sequences (L214-L237) | ✅ Done |
 | Fee-math unit and fuzz tests | `test/StoikovHookFees.t.sol` — skew (L29-L78), volatility (L80-L104), bounds for any input and parameters (L106-L127), window update (L129-L196), parameter validation (L198-L277) | ✅ Done |
 | Gas tests | `test/StoikovHookGas.t.sol` | ✅ Done |
+| Round-trip attack data (with and without the per-block cache) | `test/simulation/AttackDefense.t.sol`; `test/simulation/StoikovHookNoCache.sol` — test-only mutant, never deployed | ✅ Done |
+| Figures | `script/plots/make_figures.py` — every number read from `docs/simulation/` or computed from `defaultFeeParams()`; output in `docs/figures/` | ✅ Done |
 | Comparison simulation | `test/simulation/ComparisonSimulation.t.sol` — price path, arbitrage and noise flow, fee-matched control, metrics; `test/simulation/SimTrader.sol`, `test/simulation/SimLiquidityProvider.sol` — participants; [`docs/simulation/`](docs/simulation/README.md) — results and method | ✅ Done |
 | Design specification | [`specs/01-design.md`](specs/01-design.md) | ✅ Approved |
 
@@ -229,13 +251,19 @@ forge test
 
 `forge test` runs 41 tests: 35 for StoikovHook (integration tests, fee-math unit and fuzz tests with up to 5,000 runs, and gas tests) and 6 for the template's position-manager helpers. Add `--match-contract StoikovHookGasTest -vv` to print the gas figures. The comparison simulation is not part of the default run, so `forge test` never writes files.
 
-Run the comparison simulation (about 10 seconds; it rewrites the results in `docs/simulation/`):
+Run the simulations: the comparison, the τR sweep and the attack data (about 45 seconds; they rewrite the results in `docs/simulation/`). Add `--match-contract ComparisonSimulationTest` to run only the comparison (about 8 seconds).
 
 ```bash
 FOUNDRY_PROFILE=sim forge test -vv
 ```
 
 The `sim` profile only changes which tests run and where they may write. It inherits every compiler setting from the default profile, so the hook's bytecode is identical under both.
+
+Regenerate the figures in `docs/figures/` from those results (Python 3.9+):
+
+```bash
+pip install -r script/plots/requirements.txt && python3 script/plots/make_figures.py
+```
 
 Note: `forge test` also prints `error: file src/base/BaseHook.sol not found`. This is a known, harmless toolchain diagnostic; the build and every test succeed (see [`FEEDBACK.md`](FEEDBACK.md)).
 

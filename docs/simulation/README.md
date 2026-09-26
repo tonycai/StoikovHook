@@ -6,7 +6,7 @@ Identical order flow through a StoikovHook pool and three static-fee pools, over
 FOUNDRY_PROFILE=sim forge test -vv
 ```
 
-It is deterministic, runs locally with no RPC, and takes about 10 seconds. The `sim` profile in `foundry.toml` runs only `test/simulation/` and is the only profile allowed to write here; the default `forge test` excludes the simulation. It prints the summary tables and rewrites the three files in this directory. The code is in [`test/simulation/ComparisonSimulation.t.sol`](../../test/simulation/ComparisonSimulation.t.sol). Its assertions only check that the harness is sound (the control really is fee-matched, arbitrage never trades at a loss); none of them asserts which pool wins.
+It is deterministic, runs locally with no RPC, and takes about 45 seconds for all simulation tests (about 8 seconds with `--match-contract ComparisonSimulationTest`). The `sim` profile in `foundry.toml` runs only `test/simulation/` and is the only profile allowed to write here; the default `forge test` excludes the simulation. It prints the summary tables and rewrites the three files in this directory. The code is in [`test/simulation/ComparisonSimulation.t.sol`](../../test/simulation/ComparisonSimulation.t.sol). Its assertions only check that the harness is sound (the control really is fee-matched, arbitrage never trades at a loss); none of them asserts which pool wins.
 
 ## Model
 
@@ -119,6 +119,10 @@ Files: `ref_tau_sweep.csv` (per seed), `ref_tau_sweep_summary.csv` (per τR and 
 | `avg_fee_up_pips`, `avg_fee_down_pips` | pips | Volume-weighted average fee on price-up / price-down swaps |
 | `avg_fee_noise_pips`, `avg_fee_arb_pips` | pips | Volume-weighted average fee paid by noise traders / the arbitrageur |
 | `arb_trades` | count | Arbitrage trades |
+
+`attack_defense.csv`: the same-block round-trip attack against StoikovHook and a test-only mutant without the per-block cache (`test/simulation/AttackDefense.t.sol`): each step's direction, size and the fee charged.
+
+Figures built from these files are in [`docs/figures/`](../figures/); regenerate them with `python3 script/plots/make_figures.py`.
 
 `summary.json`: the configuration, then for each pool and metric the mean, sample standard deviation, min and max across seeds, plus the paired StoikovHook − fee-matched differences.
 
