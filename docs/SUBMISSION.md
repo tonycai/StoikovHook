@@ -1,5 +1,7 @@
 # ETHGlobal Tokyo 2026 Submission
 
+Showcase page: [ethglobal.com/showcase/stoikovhook-fpcu6](https://ethglobal.com/showcase/stoikovhook-fpcu6)
+
 Copy for the ETHGlobal submission form. Every number matches the README, the simulation outputs or the chain; the last section lists the source of each one.
 
 ## 1. Short description

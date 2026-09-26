@@ -215,4 +215,4 @@ Open every answer with a one-sentence summary, then expand. Raise the limitation
 | Runtimes: 8.4 s for `ComparisonSimulationTest`, 0.3 s for `AttackDefenseTest` | Timed locally on 2026-09-26, already compiled | P1 demo, P2 evidence 1 |
 | Line numbers | README "Repository Guide" | P1 implementation, P2 evidence 3 |
 
-The video was uploaded with the ETHGlobal submission. The public showcase link will be added to the README "Demo" section once ETHGlobal publishes it.
+The video was uploaded with the ETHGlobal submission and can be watched on the showcase page: https://ethglobal.com/showcase/stoikovhook-fpcu6
