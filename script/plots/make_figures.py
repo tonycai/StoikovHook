@@ -449,7 +449,8 @@ def figure_ref_tau_sensitivity(p: dict[str, int]) -> Path:
 
     default = p["refTau"]
     ax.axvline(default, color=DARK_GREY, linestyle=(0, (4, 3)), linewidth=1.2)
-    ax.text(default * 1.06, ax.get_ylim()[1] * 0.97, f"Default τR = {default} s", fontsize=9, color=DARK_GREY, va="top")
+    ax.text(default / 1.06, ax.get_ylim()[1] * 0.97, f"Default τR = {default} s", fontsize=9, color=DARK_GREY, va="top",
+            ha="right")  # fmt: skip
 
     # Same-seed improvements of 3600 s over the default, from the per-seed files.
     def improvement(file: str, set_name: str) -> list[float]:
@@ -460,10 +461,13 @@ def figure_ref_tau_sensitivity(p: dict[str, int]) -> Path:
 
     mr = improvement("ref_tau_sweep.csv", "holdout")
     rv = improvement("ref_tau_reversal_diagnostic.csv", "reversal")
-    ax.text(0.02, 0.03,
-            f"τR = 3600 s vs {default} s, same seeds 21–40:  mean reversion {mean(mr):+.3f} bps (t = {t_stat(mr):.1f}),  "
-            f"reversal {mean(rv):+.3f} bps (t = {t_stat(rv):.1f})",
-            transform=ax.transAxes, fontsize=9, color=DARK_GREY)  # fmt: skip
+    def signed(value: float, digits: int) -> str:
+        return f"{value:+.{digits}f}".replace("-", "−")
+
+    ax.text(0.0, 1.02,
+            f"τR = 3600 s vs. {default} s, same seeds 21–40: mean reversion {signed(mean(mr), 3)} bps "
+            f"(t = {signed(t_stat(mr), 1).lstrip('+')}), reversal {signed(mean(rv), 3)} bps (t = {signed(t_stat(rv), 1)})",
+            transform=ax.transAxes, fontsize=9, color=DARK_GREY, va="bottom")  # fmt: skip
 
     ticks = sorted({int(r["ref_tau_s"]) for r in train})
     ax.set_xscale("log")
@@ -473,8 +477,9 @@ def figure_ref_tau_sensitivity(p: dict[str, int]) -> Path:
     ax.set_xlabel("Reference-price memory τR (seconds, log scale)")
     ax.set_ylabel("LP gain over the fee-matched control (bps, mean ± 1 SD)")
     ax.axhline(0, color="black", linewidth=0.8)
-    ax.legend(loc="upper left", fontsize=8.5)
-    ax.set_title("A longer memory helps when trends persist and hurts when they reverse", fontsize=11, loc="left")
+    ax.legend(loc="upper left", bbox_to_anchor=(0.0, -0.14), fontsize=8.5)
+    ax.set_title("A longer memory helps when trends persist and hurts when they reverse", fontsize=11, loc="left",
+                 pad=22)  # fmt: skip
     return save(fig, "ref-tau-sensitivity.svg")
 
 
