@@ -518,3 +518,23 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Record the demo video and add the link to README "Demo". Then submit.
 
 ---
+
+## [2026-09-26 13:18 JST] Project description aligned with results; CREATE2 note reframed
+
+**Goal**: Remove wording that claims more than the simulation shows, starting with the GitHub description, and turn the CREATE2 address collision into a documentation suggestion now that the Uniswap team has confirmed it is expected behavior.
+
+**Result**:
+- GitHub description, changed with `gh repo edit`. Old: "Uniswap v4 hook using the Avellaneda-Stoikov model for dynamic fees that protect LPs from LVR" (the value recorded on 2026-09-25). New: "Uniswap v4 hook with Avellaneda-Stoikov-style directional fees: arbitrageurs pay more, regular traders pay the same on average". "On average" is there because a single regular trade still pays more or less depending on its direction; only the average matches the fee-matched pool.
+- Repository-wide search for "protect LPs", "reduce LVR", "reduce adverse selection" and similar claims (excluding `lib/` and this log). Four lines rewritten:
+  - `docs/DEMO_SCRIPT.md`, one-line pitch: "dynamic fees that protect LPs" → "directional fees. Arbitrageurs pay more, and regular traders pay the same on average."
+  - `docs/DEMO_SCRIPT.md`, Q4 limitations: "the cap also limits the protection" → "the cap also limits how much of an arbitrage the fee can capture".
+  - `AI_USAGE.md` and README "Built With AI", project concept: "reduce LPs' adverse-selection loss" → shrink the share of that loss (LVR) that arbitrageurs keep, matching the spec (`specs/01-design.md:316`) and the result (32.9% → 30.3%).
+  - The only remaining hit is README Limitations, "StoikovHook does not lower LVR in absolute terms", which is the disclaimer itself. The README tagline, Solution and G1 already describe the result accurately.
+- FEEDBACK.md: new Documentation Gaps entry. HookMiner is deterministic, so the template's example hook compiled as generated mines to an address already deployed on public testnets. Any change to the creation code, the constructor arguments or the flags gives a new address. Confirmed as expected behavior by the Uniswap team on Discord. Suggestion: say so in the template README. Priority list updated.
+
+**Issues**:
+1. FEEDBACK.md had no existing CREATE2 entry to rewrite. The collision was only ever recorded in CLAUDE.md's Known Environment Issues, originally with the workaround "change `optimizer_runs`" and corrected in `d5b0bcc`. The documentation suggestion was added as a new entry.
+
+**Next**: Record the demo video and add the link to README "Demo". Then submit.
+
+---
