@@ -552,3 +552,34 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Record the demo video and add the link to README "Demo". Then submit.
 
 ---
+
+## [2026-09-26 13:27 JST] ETHGlobal submission copy
+
+**Goal**: Draft all the text for the ETHGlobal submission form in `docs/SUBMISSION.md`, with every number matching the README, and check each number against its source. Also: keep "on average" in the repository description, and credit the CREATE2 confirmation in FEEDBACK.md with Tony's exact wording.
+
+**Result**:
+- `docs/SUBMISSION.md`, five sections:
+  - Short description: 99 characters, within the 100 limit.
+  - Description: 242 words.
+  - How it's made: 299 words.
+  - Uniswap Foundation prize: 11 integration points with `file:line`, plus the FEEDBACK.md contributions.
+  - AI usage.
+- A table at the end gives the source of every number (`file:line` in the README, the simulation outputs, the spec or the deployment record). Each cited line was printed and checked. The τR numbers (+0.042 ± 0.027, −0.117 ± 0.062) are in `docs/simulation/README.md`, not the main README.
+- Repository description: unchanged, still says "on average".
+- FEEDBACK.md: the CREATE2 entry now reads "Confirmed by Dayitva (Uniswap Foundation) on the ETHGlobal Tokyo Discord".
+- AI_USAGE.md brought up to date. Before this change it still said the pricing model and the Sepolia deployment were 🚧 in progress. Now it lists:
+  - the agent's simulation, calibration and deployment-check work;
+  - the author's simulation requirements, the τR protocol and the decision to keep 900 s;
+  - that the author ran the live broadcast.
+  The build log does not record who first proposed the reversal diagnostic, so AI_USAGE.md only says the agent ran it.
+- README Tech Stack: added Solady v0.1.26 (`FixedPointMathLib`), which the fee math uses but the list had left out.
+
+**Issues**:
+1. The first draft exceeded the limits: 102 characters, 265 words and 309 words. It was trimmed.
+2. Two wording fixes found during the number check:
+   - Volatility is an EWMA of *squared* tick changes (`specs/01-design.md:115`).
+   - The reversal result now reads "worse than 900 s (−0.117 ± 0.062 bps)" instead of the sign-ambiguous "losing −0.117".
+
+**Next**: Tony reviews the submission copy and pastes it into the form. Then record the demo video and add the link to README "Demo".
+
+---
