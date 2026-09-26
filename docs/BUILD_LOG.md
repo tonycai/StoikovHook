@@ -706,3 +706,49 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Add the showcase link to README "Demo" once ETHGlobal publishes it. Prepare for live judging at 09:30 JST on 2026-09-27.
 
 ---
+
+## [2026-09-26 17:25 JST] After submission: FEEDBACK final, pre-judging checks, live judging notes
+
+**Goal**: Documentation only; the code is frozen.
+- Record the submission.
+- Update README "Demo".
+- Finalize FEEDBACK.md and give a permalink for the Uniswap feedback form.
+- Run the pre-judging checks.
+- Write `docs/LIVE_JUDGING.md` for the live judging at 09:30 JST on 2026-09-27: a 4-minute demo and 3 minutes of questions, in simple English.
+
+**Result**:
+- The submission is recorded in the entry above.
+- README "Demo": the video was uploaded with the submission, and the showcase link follows once published. The repository has no address containing "undefined".
+- CLAUDE.md:
+  - The track name is now "Building from Scratch", as submitted. It was "Start From Scratch".
+  - A freeze rule for `src/`, `script/` and `test/`.
+- FEEDBACK.md:
+  - Every entry now has `file:line` evidence and a suggested fix. Four template entries lacked line numbers and now cite the template as generated, at commit `dfbe4cf`: `.gitignore:12`, `.github/workflows/test.yml:9`, `.gitignore:5-9` and `script/03_Swap.s.sol:32`.
+  - The `deployerAddress` entry now cites the template's lines (`BaseScript.sol:37`, `:70-78`) instead of this repository's edited file.
+  - Two paragraphs about our own history were cut.
+  - All references were printed and checked.
+  - The permalink for the Uniswap form is pinned to this round's final commit. FEEDBACK.md is unchanged since `7ce9da6`.
+- Pre-judging checks:
+  - **Fresh clone** from GitHub with submodules at `7ce9da6`. The submodules match `foundry.lock` (solady `acd959a`, uniswap-hooks `e59fe72`). `forge build`: 112 files, solc 0.8.30, success. `forge test`: 41/41 pass. The known harmless `src/base/BaseHook.sol not found` message appears, as documented in FEEDBACK.md.
+  - **Extra check:** the fresh clone's StoikovHook runtime (9,738 bytes) is identical to the Sepolia bytecode after masking immutables.
+  - **README links:** 34 unique links. All 23 internal files and anchors resolve. All 11 external links return HTTP 200: Foundry docs, the three verified contract pages, the PoolManager, four transactions, X and GitHub. The three contract pages show "Source Code Verified". The repository page also returns 200.
+  - **Figures:** all five SVGs are referenced as images (README lines 136, 158, 191, 195 and 207) and are served by GitHub as `image/svg+xml`.
+  - **Git:** the status is clean after the final commit, and nothing under `.env*`, `cache/`, `broadcast/` or `out/` is tracked.
+- `docs/SUBMISSION.md`: two README line references went stale when the brand row was added to the Repository Guide. `README.md:307` is now `:308`, and `:324-325` is now `:325-326`.
+- `docs/DEMO_SCRIPT.md`: the status now says the video is uploaded, and points to `docs/LIVE_JUDGING.md`.
+- `docs/LIVE_JUDGING.md`:
+  - A pronunciation table.
+  - A 6-step, 4-minute demo, with the tabs to open, what to show and 2–3 short lines per step.
+  - Eight questions, each with 2–3 short answers and a one-line fallback.
+  - Phrases for a question you did not catch.
+  - A key-numbers table: percent first, then pips, with sources. All 42 source checks pass, and every percent conversion was recomputed.
+
+**Issues**:
+1. While checking the judging notes, three lines were corrected:
+   - A builder's cross-block gain is "limited" in the spec, not "small".
+   - "The test design" would have claimed the fee-matched baseline, which the AI proposed.
+   - The stress in "Avellaneda" was wrong.
+
+**Next**: Tony practices with `docs/LIVE_JUDGING.md`. Add the showcase link to README "Demo" once ETHGlobal publishes it.
+
+---

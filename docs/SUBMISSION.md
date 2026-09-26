@@ -120,7 +120,7 @@ Lengths: short description 99 characters (limit 100); description 245 words; how
 | τR = 3600 s passed the rule: +0.042 ± 0.027 bps, t = 6.9 | 3 | `docs/simulation/README.md:84`, `docs/simulation/README.md:91` |
 | Reversal scenario: 3600 s vs. 900 s −0.117 ± 0.062 bps, t = −8.5 | 3 | `docs/simulation/README.md:102` |
 | uniswap-hooks v1.1.0 | 4 | `README.md:215` |
-| Hook `0x67b97620…5080`; swap fees 1,987 and 2,799 pips | 4 | `README.md:307`, `README.md:324-325`; `docs/deployments/sepolia.md:17`, `docs/deployments/sepolia.md:84-85` |
+| Hook `0x67b97620…5080`; swap fees 1,987 and 2,799 pips | 4 | `README.md:308`, `README.md:325-326`; `docs/deployments/sepolia.md:17`, `docs/deployments/sepolia.md:84-85` |
 | 12-second horizon h | 6 | `src/StoikovHook.sol:L55-L57`; `README.md` fee-curve figure title |
 | Solidity 0.8.30; uniswap-hooks v1.1.0; Solady v0.1.26 | 7 | `README.md:213`, `README.md:215`, `README.md:217`; `foundry.toml`; `foundry.lock` |
 | Python 3.9; matplotlib 3.9.4 | 7 | `script/plots/requirements.txt`; plotting environment `python3 --version` = 3.9.6 |

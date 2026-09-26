@@ -3,7 +3,7 @@
 > These are speaker notes, not a script to read aloud. The rules prohibit AI voice-over, so Tony narrates both the video and the live demo personally, speaking freely.
 > Every number below comes from a file in this repository or from the chain. "Sources of the Numbers" at the end lists where each one comes from.
 > Only present what is implemented. If a comparison result is unfavorable or mixed, say so.
-> Status (2026-09-26): the contract, tests, comparison simulation and Sepolia deployment are done, and the source is verified on Etherscan. The only open item is the video link.
+> Status (2026-09-26): the contract, tests, comparison simulation and Sepolia deployment are done, and the source is verified on Etherscan. The video (2 min 44 s) was uploaded with the ETHGlobal submission on 2026-09-26. For live judging, use `docs/LIVE_JUDGING.md`.
 
 ---
 
@@ -215,4 +215,4 @@ Open every answer with a one-sentence summary, then expand. Raise the limitation
 | Runtimes: 8.4 s for `ComparisonSimulationTest`, 0.3 s for `AttackDefenseTest` | Timed locally on 2026-09-26, already compiled | P1 demo, P2 evidence 1 |
 | Line numbers | README "Repository Guide" | P1 implementation, P2 evidence 3 |
 
-Still open: the video link, to be added to the README "Demo" section after uploading.
+The video was uploaded with the ETHGlobal submission. The public showcase link will be added to the README "Demo" section once ETHGlobal publishes it.
