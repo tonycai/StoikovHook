@@ -228,6 +228,7 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 | Fee formula: volatility premium, inventory skew, clamps | `src/StoikovHook.sol:L260-L286` — f = clamp(f0 + σ_h·(α ± β·q̂), fmin, fmax) | ✅ Done |
 | Estimator update at window open (EWMA volatility, EMA reference) | `src/StoikovHook.sol:L222-L254` — elapsed time floored at 1 s, tick change winsorized at ±C | ✅ Done |
 | Parameters and deploy-time validation | `src/StoikovHook.sol:L22-L69` — `FeeParams` and the defaults with their rationale; `src/StoikovHook.sol:L290-L299` — invariants, including β ≤ α | ✅ Done |
+| Sepolia demo deployment | `script/sepolia/DeployDemo.s.sol` — test tokens, hook at a mined address, dynamic-fee pool and liquidity, three demo swaps in separate blocks | ✅ Rehearsed on a Sepolia fork; live broadcast 🚧 |
 | Address mining and CREATE2 deployment | `script/00_DeployHook.s.sol:L18-L35` — mines with the shared flag constant and the encoded fee parameters, deploys via CREATE2 | ✅ Done (local anvil); Sepolia 🚧 |
 | Integration tests through PoolManager | `test/StoikovHook.t.sol` — permissions and initialization (L30-L83), charged fee vs. stored fee (L85-L113), skew direction (L115-L145), volatility response (L147-L170), per-block caching (L172-L212), fuzzed swap sequences (L214-L237) | ✅ Done |
 | Fee-math unit and fuzz tests | `test/StoikovHookFees.t.sol` — skew (L29-L78), volatility (L80-L104), bounds for any input and parameters (L106-L127), window update (L129-L196), parameter validation (L198-L277) | ✅ Done |
@@ -285,7 +286,16 @@ forge script script/00_DeployHook.s.sol --rpc-url http://127.0.0.1:8545 \
   --gas-limit 100000000000 --disable-block-gas-limit
 ```
 
-🚧 In progress: the Sepolia deployment and the pool, liquidity and swap scripts (`01`–`03`) running end to end against it. Keys will only be used through a Foundry keystore (`--account`).
+Deploy the Sepolia demo in one broadcast: two test tokens, the hook at a mined CREATE2 address, a dynamic-fee pool with full-range liquidity, and three swaps that show the direction-dependent fee. Keys are used only through a Foundry keystore:
+
+```bash
+forge script script/sepolia/DeployDemo.s.sol --rpc-url "$SEPOLIA_RPC_URL" \
+  --account <keystore-name> --sender <deployer-address> \
+  --broadcast --slow --with-gas-price 5gwei \
+  --gas-limit 100000000000 --disable-block-gas-limit
+```
+
+`--slow` sends each transaction only after the previous one is mined, so every swap lands in its own block and opens its own fee window. `--with-gas-price 5gwei` caps the fee per gas. The script was rehearsed on an anvil fork of Sepolia: 15 transactions, about 5.2M gas. 🚧 The live Sepolia deployment is pending.
 
 ## Deployed Contracts
 

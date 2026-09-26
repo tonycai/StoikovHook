@@ -25,6 +25,11 @@ Developer-experience notes on the Uniswap v4 toolchain, collected while building
 - **v4-template: `Deployers` cannot create tokens from a forge script.** `Deployers.deployToken` mints to `address(this)` (`test/utils/Deployers.sol:39`). Forge rejects any use of a script contract's own address ("Usage of `address(this)` detected in script contract"), and `BaseScript` inherits `Deployers` (`script/base/BaseScript.sol:19`), so calling `deployCurrencyPair()` from a script fails at the first mint. We hit this building the comparison simulation and worked around it with dedicated participant contracts that receive the tokens.
   *Suggestion:* pass the token recipient as a parameter, or mark the token helpers as test-only.
 
+- **v4-template: `BaseScript.deployerAddress` is wrong in keyless dry runs.** It is resolved in the constructor (`script/base/BaseScript.sol:38`). There, `getDeployer()` falls back to `msg.sender` when no wallet flag is given (`:75-81`), and in a script's constructor that is forge's default sender `0x1804c8AB…`, not `--sender`. A dry run with only `--sender` (no key) therefore mints and sends tokens to the wrong account, and the next `transferFrom` from the real broadcaster fails with `TRANSFER_FROM_FAILED`. With `--account` the value is correct, so the dry run and the real broadcast silently differ.
+  *Reproduction:* a script that mints to `deployerAddress` and then adds liquidity, run with `--rpc-url <sepolia> --sender <address>` and no wallet flags.
+  *Workaround:* read the broadcaster from `msg.sender` inside `run()`, which forge sets to `--sender`, and call `vm.startBroadcast(broadcaster)` (see `script/sepolia/DeployDemo.s.sol`).
+  *Suggestion:* resolve the deployer inside `run()`, or document that `deployerAddress` requires a wallet flag.
+
 ## Documentation Gaps
 
 - **Dynamic-fee pools start with `lpFee = 0`.** `getInitialLPFee` returns 0 for dynamic-fee pools (`v4-core/src/libraries/LPFeeLibrary.sol:51-54`). The only guidance we found is the source comment recommending `updateDynamicLPFee` in `afterInitialize` (`LPFeeLibrary.sol:48`). For hooks that only use the per-swap override, the stored fee is never read, so if any code path forgot to set `OVERRIDE_FEE_FLAG`, that swap would be charged **0**. Tools that display `slot0.lpFee` also show 0 for these pools.

@@ -470,3 +470,25 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Push, then confirm on GitHub that all five figures render in light and dark mode.
 
 ---
+
+## [2026-09-26 12:06 JST] Sepolia demo deployment script, rehearsed
+
+**Goal**: Prepare the Sepolia deployment (M4/A10) and rehearse it without a key. Check the estimated cost against the deployer's balance (Tony's rule: flag if the estimate exceeds 0.05 ETH), and produce the broadcast command with `--account ethglobal-dev` and `--sender`.
+
+**Result**:
+- `script/sepolia/DeployDemo.s.sol`: one broadcast of 15 transactions. It deploys two test tokens (MockERC20) and mints them; deploys StoikovHook through the CREATE2 deployer at a HookMiner-mined address; sets Permit2 and router approvals; initializes a dynamic-fee pool and adds full-range liquidity in one multicall; then makes three swaps (buy 5, sell 1, buy 1 token0). With `--slow`, every transaction lands in its own block.
+- Preconditions checked on Sepolia (chain 11155111): the deployer has 0.08 ETH and nonce 0; PoolManager, PositionManager, the V4 swap router, Permit2 and the CREATE2 deployer all have code.
+- Rehearsal 1, a dry run against Sepolia (`--sender` only, no key): succeeds. Forge's estimate is **7,142,795 gas at 1.91 gwei = 0.0136 ETH**, under the 0.05 ETH threshold. Hook address `0x67b97620e35DAf13de266F84cAbC8c8d45755080` (low 14 bits `0x1080`).
+- Rehearsal 2, a full broadcast on an anvil fork of Sepolia (impersonating the deployer, 1 s blocks, `--slow`): 15 transactions in 15 blocks, **5,240,285 gas used** (0.0058 ETH at 1.1 gwei). The swaps paid 845 pips (buy, first window), then **2,010** (sell, the rebalancing side) and **2,945** (buy, the imbalancing side) in the next two blocks, with the price about 1% above the reference. The fork's broadcast records were deleted afterwards so they cannot be mistaken for, or replayed as, the real deployment.
+- README: Sepolia command (with placeholders) and a Repository Guide row. CLAUDE.md and FEEDBACK.md: the `deployerAddress` issue.
+
+**Issues**:
+1. The first dry run failed with `TRANSFER_FROM_FAILED`.
+   Root cause: the template's `BaseScript` resolves `deployerAddress` in its constructor (`script/base/BaseScript.sol:38`, `:75-81`), where `msg.sender` is forge's default sender unless a wallet flag is given. Tokens were minted to `0x1804c8AB…` while the broadcaster had none.
+   Fix: take the broadcaster from `msg.sender` inside `run()` and `vm.startBroadcast(deployer)`, and refuse to run as the default sender. Logged in FEEDBACK.md.
+2. The first rehearsal pushed 20 tokens (about 4% in one block). The volatility estimate jumped, and the imbalancing fee hit the 1% cap (10,000 vs. 4,447 pips). That is correct behavior but a poor demo. The push is now 5 tokens (about 1%), giving an uncapped 2,945 vs. 2,010.
+3. Correction: I briefly replaced HookMiner with a custom miner, claiming `HookMiner.find` reads every candidate's code (one RPC request per try on a fork). That was wrong: `HookMiner.sol:36` short-circuits, so only flag-matching candidates are read. Measured: HookMiner 64.0M gas vs. 38.4M for the custom miner (19,437 tries), and both need the gas flags. The custom miner was removed; the script uses the template's HookMiner, which finds the identical salt and address.
+
+**Next**: Tony runs the broadcast with the keystore. Then record the addresses and transaction hashes, verify on-chain (flags, the `Swap` event fees), verify the source, and fill in README "Deployed Contracts".
+
+---
