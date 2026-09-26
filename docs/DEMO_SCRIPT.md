@@ -1,9 +1,9 @@
 # StoikovHook Demo Script
 
 > These are speaker notes, not a script to read aloud. The rules prohibit AI voice-over, so Tony narrates both the video and the live demo personally, speaking freely.
-> Unknown values are marked `[TBD: …]` and collected in "Values to Fill In" at the end.
+> Every number below comes from a file in this repository or from the chain. "Sources of the Numbers" at the end lists where each one comes from.
 > Only present what is implemented. If a comparison result is unfavorable or mixed, say so.
-> Status (2026-09-25): the design spec is done. The contract, tests, simulation and deployment are **not implemented yet**, and every demo scene below depends on them.
+> Status (2026-09-26): the contract, tests, comparison simulation and Sepolia deployment are done, and the source is verified on Etherscan. The only open item is the video link.
 
 ---
 
@@ -50,35 +50,37 @@ Before recording:
 **On screen**:
 1. **1:00–1:25 `fee-timeseries.svg`**: one run, the trend and then mean reversion, with the two fees.
 2. **1:25–2:30 `lp-performance.svg`**: start with panel (c), then (a) and (b).
-3. Briefly, the terminal output of `FOUNDRY_PROFILE=sim forge test -vv` to show the numbers come from a reproducible run.
+3. Briefly, the terminal output of `FOUNDRY_PROFILE=sim forge test --match-contract ComparisonSimulationTest -vv` (about 8 seconds) to show the numbers come from a reproducible run.
 
 **Talking points**:
 - Same price path for every pool: a trend, then mean reversion. The arbitrageur and the regular traders face exactly the same conditions in every pool.
 - The key comparison is the fee-matched static pool. Regular users pay the same average fee, so the comparison isolates the effect of the fee's *shape*.
-- Result: LP terminal value vs. the fee-matched pool `[TBD: LP terminal value difference, %]`; arbitrageur profit `[TBD: arbitrage profit difference, %]`.
-- Against the 0.05% and 0.30% pools: `[TBD: difference vs. the two static tiers]`.
-- At the jump, the fee rises from `[TBD: fee before the jump]` to `[TBD: fee after the jump]`.
-- Direction asymmetry: within the same window, the side that pushes the price further pays `[TBD: imbalancing-side fee]` and the side that brings it back pays `[TBD: rebalancing-side fee]`.
+- Result: LP terminal value vs. the fee-matched pool is **+0.160 ± 0.105 bps** of pool value, positive in 20 of 20 seeds. That recovers about 2.2% of the LP's loss versus HODL: consistent, but small.
+- The arbitrageur's profit is **not** lower (+0.009 bps, +1.6%). What changes is who gets the value it extracts: the arbitrageur pays +0.175 bps more in fees, and its share falls from 32.9% to 30.3%.
+- Against the 0.05% and 0.30% pools: LP − HODL is −7.036 bps for StoikovHook, −10.497 for 0.05% and −5.766 for 0.30%. StoikovHook beats 0.05% but not 0.30%. The 0.30% pool also charges regular traders 3,000 pips against StoikovHook's average of about 2,200, so it is context, not the claim.
+- As the trend starts, the price-up fee climbs from 839 pips in block 1 to 2,204 by block 20 (seed 0).
+- Direction asymmetry: during seed 0's up-trend, each window charges more to the side that pushes the price further. Averaged over the 200 trend blocks, that side pays 2,688 pips and the side that brings it back pays 1,504. The gap holds in 196 of 200 blocks.
 - Say plainly where it does not help: the mean-reversion segment shows no gain, because the reference price lags.
 
 ### 2:30–3:00 Implementation (30 s)
 
-**On screen**: **2:35–2:50 `attack-defense.svg`**, then `beforeSwap` and the fee formula in `src/StoikovHook.sol` (`[TBD: line numbers]`), the test output, and the gas figures.
+**On screen**: **2:35–2:50 `attack-defense.svg`**, then `beforeSwap` and the fee formula in `src/StoikovHook.sol` (`_getFee` at L200-L219, `_computeFees` at L260-L286), the test output, and the gas figures.
 
 **Talking points**:
 - v4 dynamic fees: the pool is created with `DYNAMIC_FEE_FLAG`, and `beforeSwap` returns `fee | OVERRIDE_FEE_FLAG` to override the fee on every swap.
 - Fixed-point math: variance is scaled by 1e12, the reference price keeps 16 fractional bits, and there is one integer square root per block.
 - Each pool's state fits in a single storage slot.
-- Gas: `[TBD: cached-path gas]` for later swaps in a block and `[TBD: window-open gas]` for the first swap of a block.
-- Tests: `[TBD: total test count]` tests and `[TBD: fuzz runs]` fuzz runs, covering the fee bounds and the guarantee that the hook never reverts a swap.
+- Gas: 3,678 for later swaps in a block and 14,905 for the first swap of a block (warm measurement).
+- Tests: 35 hook tests, including five fuzz tests at 1,000–5,000 runs each (13,000 fuzz runs per `forge test`), covering the fee bounds and the guarantee that the hook never reverts a swap.
 
 ### 3:00–3:30 Wrap-up (30 s)
 
-**On screen**: On the Sepolia explorer, the hook address `[TBD: hook contract address]` and two swaps in opposite directions `[TBD: swap transaction hashes ×2]`, with the `fee` field of each `Swap` event open. End on the GitHub repository page.
+**On screen**: On the Sepolia explorer, the hook address `0x67b97620e35DAf13de266F84cAbC8c8d45755080` and two swaps in opposite directions, `0x266a7eaa4f6f8888b6047174dd66cc1b3d1f2dcd4d60484b0ee3bb47e620d0a7` (price down) and `0x316450c5cbe165e81fe51cef36a0a0d44d9d63a1c4514eb86dd18d0b8903d574` (price up), with the `fee` field of each `Swap` event open. End on the GitHub repository page.
 
 **Talking points**:
 - The low 14 bits of the hook address are `0x1080`, so only the `afterInitialize` and `beforeSwap` callbacks are enabled.
-- The two swaps go in opposite directions and pay different fees: `[TBD: fee values of the two transactions]`.
+- The two swaps go in opposite directions and pay different fees: the price-down swap paid 1,987 pips (0.1987%) and the price-up swap paid 2,799 pips (0.2799%).
+- They are in consecutive windows, two blocks apart, so also show each block's `FeeWindowUpdated` event. It posts both sides at once: 2,949 / 1,987, then 2,799 / 2,067. The side that pushes the price further is higher in both.
 - The repository is github.com/tonycai/StoikovHook. The design spec, build log and AI usage notes are all public.
 
 ---
@@ -91,27 +93,29 @@ The principle: **conclusion first, then evidence.** Never run a slow script live
 
 - One-line pitch: a v4 hook that uses Avellaneda–Stoikov market-making logic to set dynamic fees that protect LPs.
 - State three numbers up front:
-  1. LP terminal value vs. the fee-matched static pool: `[TBD: LP terminal value difference, %]`
-  2. Arbitrageur profit: `[TBD: arbitrage profit difference, %]`
-  3. Gas overhead: `[TBD: cached-path gas]` / `[TBD: window-open gas]`
+  1. LP terminal value vs. the fee-matched static pool: +0.160 ± 0.105 bps, positive in 20 of 20 seeds (about 2.2% of the LP's loss versus HODL)
+  2. Arbitrageur profit: not lower (+1.6%), but the arbitrageur pays +0.175 bps more in fees, so its share of the value it extracts falls from 32.9% to 30.3%
+  3. Gas overhead: 3,678 for cached swaps / 14,905 for the first swap of a block
 - Announce the three pieces of evidence that follow: simulation results, on-chain transactions, code.
 
 ### 0:30–1:30 Evidence 1: the comparison simulation
 
 - Show `lp-performance.svg`, panel (c) first, then the saved results in `docs/simulation/`.
-- If time allows, run one test live: `[TBD: single test command]`. It takes about `[TBD: single test runtime]` seconds; skip it if it takes more than 10 seconds.
+- If time allows, run one test live: `FOUNDRY_PROFILE=sim forge test --match-contract ComparisonSimulationTest -vv`. It takes about 8 seconds (8.4 s measured, already compiled); skip it if it takes more than 10 seconds. Run it once before the session so nothing compiles live.
+- Faster alternative: `FOUNDRY_PROFILE=sim forge test --match-contract AttackDefenseTest -vv` (0.3 s). It prints the fee of the large buy with the per-block cache (6,302) and without it (4,933).
 - Point to the rows where the fee rises with the jump and skews by direction.
 
 ### 1:30–2:30 Evidence 2: on-chain
 
 - In the pre-opened tabs, show the hook address page and point out that its low 14 bits are `0x1080`.
 - Open the `Swap` event of each of the two swap transactions and compare their `fee` values.
-- Show a `FeeWindowUpdated` event: the tick, the reference price and the fees on both sides at that moment.
+- Show a `FeeWindowUpdated` event: the tick, the reference price and the fees on both sides at that moment. In the price-down swap's transaction: tick 99, reference 1, σ_h 1,968, fees 2,949 / 1,987.
+- The full transaction list and every fee are in `docs/deployments/sepolia.md`.
 
 ### 2:30–3:30 Evidence 3: the code
 
 - Walk through the README's Repository Guide table; every row points to a `file:line`.
-- Show the `beforeSwap` return value `[TBD: line numbers]`, the fee formula `[TBD: line numbers]` and the dynamic-fee check in `afterInitialize` `[TBD: line numbers]`.
+- Show the `beforeSwap` return value (`src/StoikovHook.sol:L200-L219`; the override flag is added at `lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:L67`), the fee formula (`src/StoikovHook.sol:L260-L286`) and the dynamic-fee check in `afterInitialize` (`src/StoikovHook.sol:L174-L196`, which calls the inherited check at `lib/uniswap-hooks/src/fee/BaseOverrideFee.sol:L45`).
 - Show the test list and the gas snapshot.
 
 ### 3:30–4:00 Limitations and next steps
@@ -120,7 +124,7 @@ The principle: **conclusion first, then evidence.** Never run a slow script live
 - Next steps: size-aware fees (S1) and Monte Carlo calibration (S2).
 
 Fallback plan:
-- If the network fails, use offline screenshots of the browser pages and the results table: `[TBD: screenshot folder]`.
+- If the network fails, use material that works offline: the figures in `docs/figures/`, the results in `docs/simulation/`, and the transaction and fee tables in `docs/deployments/sepolia.md`. Take screenshots of the explorer pages the day before, as a backup for the on-chain part.
 - Keep a timer out of the camera's view. Start the wrap-up by 3:30 at the latest.
 
 ---
@@ -137,12 +141,12 @@ Open every answer with a one-sentence summary, then expand. Raise the limitation
   - There is no terminal time, so we use the stationary solution (Guéant–Lehalle–Fernandez-Tapia 2013), in which quotes scale linearly with σ.
   - The pool cannot choose where its quotes are centered; the curve does. We control only the fee on each side, and the fee asymmetry implements the reservation-price shift.
 - Independent support: in LVR theory, the share of LVR that arbitrageurs capture depends on $f/(\sigma\sqrt{\Delta t})$, which justifies a fee proportional to σ.
-- **Limitations**: $\gamma, k, A$ are not estimated from data but folded into constants, and the default parameters are placeholders. Whether the inventory skew pays off is an empirical question that depends on the simulation result, `[TBD: LP terminal value difference, %]`.
+- **Limitations**: $\gamma, k, A$ are not estimated from data but folded into constants, and the default parameters are placeholders. Whether the inventory skew pays off is an empirical question. In our simulation it does, but only slightly: +0.160 ± 0.105 bps against the fee-matched pool, about 2.2% of the LP's loss versus HODL, from a single price-path generator.
 
 ### Q2. How much gas does the hook add? Is it still worth it for small trades?
 
-- `[TBD: cached-path gas]` for later swaps in a block and `[TBD: window-open gas]` for the first swap of a block. The design targets are ≤ 5,000 and ≤ 25,000.
-- For comparison, a plain v4 swap costs about `[TBD: total gas of a plain swap]` in total.
+- 3,678 gas for later swaps in a block and 14,905 for the first swap of a block (warm; 5,678 and 16,905 cold). The design targets are ≤ 5,000 and ≤ 25,000.
+- For comparison, the same swap in a hookless pool costs 40,120 gas of execution (warm), before the 21,000-gas transaction base cost and calldata. The hook adds about 9% on the cached path and 37% on the first swap of a block.
 - Gas is a fixed cost that does not depend on trade size. The fee itself is proportional, so small trades pay proportionally.
 - **Limitations**: on L1, very small trades are dominated by gas anyway, and the hook makes that more noticeable. On L2s the overhead is negligible.
 
@@ -161,12 +165,12 @@ Open every answer with a one-sentence summary, then expand. Raise the limitation
 
 - Defaults: a 0.01% floor and a 1% cap, fixed at deployment (placeholder values).
 - Example: after a 10% price move within one block, both sides hit the 1% cap. If trades then arrive every 12 seconds with no further price movement, the rebalancing side drops below the cap within about 2 blocks. The continuation side stays capped for about 11.6 minutes (computed in spec §2.7).
-- Nobody is locked out. The fee is bounded, and by design there is no revert path (fuzz-tested with `[TBD: fuzz runs]` runs). The hook registers no liquidity callbacks, so LPs can always withdraw.
+- Nobody is locked out. The fee is bounded, and by design there is no revert path (fuzz-tested with 1,000–5,000 runs per fuzz test). The hook registers no liquidity callbacks, so LPs can always withdraw.
 - **Limitations**: the cap also limits the protection. A 10% jump causes far more than 1% of LVR.
 
 ### Q5. How does this differ from existing dynamic fee hooks?
 
-- Common approaches (verify specific project names before citing them: `[TBD: verify names of comparable dynamic fee hooks]`):
+- Common approaches, by category. We name no specific projects, because we have not surveyed them systematically:
   - Adjust a **single** fee from some signal, with the same fee in both directions, stored in `slot0.lpFee`.
   - Depend on an external signal (oracle price or volatility, gas price, and so on) or on a keeper that pushes periodic updates.
 - What sets StoikovHook apart:
@@ -175,7 +179,7 @@ Open every answer with a one-sentence summary, then expand. Raise the limitation
   3. **No external dependencies**: only the pool's own tick, the block number and the block timestamp. No oracle, no keeper.
   4. **Per-block snapshot**: rules out same-block manipulation by design.
   5. **One storage slot of state** and no admin.
-- The implementation will build on OpenZeppelin uniswap-hooks' `BaseOverrideFee` (planned).
+- The implementation builds on OpenZeppelin uniswap-hooks' `BaseOverrideFee` (`lib/uniswap-hooks/src/fee/BaseOverrideFee.sol`).
 - **Limitations**: we have not done a systematic survey of other projects. The "common approaches" above summarize categories.
 
 ### Q6. How does this hook's inventory skew differ from a real market maker's inventory management?
@@ -196,24 +200,19 @@ Open every answer with a one-sentence summary, then expand. Raise the limitation
 
 ---
 
-## Values to Fill In
+## Sources of the Numbers
 
-| # | Placeholder | Source | Where it appears |
-|---|---|---|---|
-| 1 | `[TBD: LP terminal value difference, %]` | Comparison simulation (M3), vs. the fee-matched static pool | P1 demo, P2 conclusion, Q1 |
-| 2 | `[TBD: arbitrage profit difference, %]` | Comparison simulation (M3) | P1 demo, P2 conclusion |
-| 3 | `[TBD: difference vs. the two static tiers]` | Comparison simulation (M3), vs. 0.05% / 0.30% | P1 demo |
-| 4 | `[TBD: fee before the jump]` / `[TBD: fee after the jump]` | `FeeWindowUpdated` output from the simulation | P1 demo |
-| 5 | `[TBD: imbalancing-side fee]` / `[TBD: rebalancing-side fee]` | Simulation or unit test (A4) | P1 demo |
-| 6 | `[TBD: cached-path gas]` / `[TBD: window-open gas]` | Gas snapshot (A8) | P1 implementation, P2 conclusion, Q2 |
-| 7 | `[TBD: total gas of a plain swap]` | Gas snapshot of a control pool without the hook | Q2 |
-| 8 | `[TBD: total test count]` / `[TBD: fuzz runs]` | `forge test` output (A1, A7) | P1 implementation, Q4 |
-| 9 | `[TBD: hook contract address]` | Sepolia deployment (A10) | P1 wrap-up |
-| 10 | `[TBD: swap transaction hashes ×2]` / `[TBD: fee values of the two transactions]` | Sepolia deployment (A10) | P1 wrap-up |
-| 11 | `[TBD: scenario test command, e.g. forge test --match-contract … -vv]` | Set once M3 is implemented | P1 demo |
-| 12 | `[TBD: single test command]` / `[TBD: single test runtime]` | Timed locally | P2 evidence 1 |
-| 13 | `[TBD: results file path]` | Where the M3 output is saved | P2 evidence 1 |
-| 14 | `[TBD: line numbers]` | README Repository Guide | P1 implementation, P2 evidence 3 |
-| 15 | `[TBD: screenshot folder]` | Demo prep | P2 fallback plan |
-| 16 | `[TBD: verify names of comparable dynamic fee hooks]` | Research before the demo | Q5 |
-| 17 | Video link | Add to the README "Demo" section after uploading | README |
+| Value | Source | Where it appears |
+|---|---|---|
+| LP − HODL vs. the fee-matched pool: +0.160 ± 0.105 bps, 20 of 20 seeds, ≈ 2.2% of the loss vs. HODL | `docs/simulation/summary.json` (`paired_stoikov_minus_fee_matched`) | P1 demo, P2 conclusion, Q1 |
+| Arbitrage profit +0.009 bps (+1.6%); arbitrage fees +0.175 bps; arbitrageur's share 32.9% → 30.3% | `docs/simulation/summary.json`; README "Results" | P1 demo, P2 conclusion |
+| LP − HODL by pool: −7.036 / −10.497 / −5.766 bps; average fee to regular traders 2,197 vs. 3,000 pips | `docs/simulation/summary.json` (`pools`) | P1 demo |
+| Price-up fee 839 → 2,204 pips over blocks 1–20; trend averages 2,688 vs. 1,504 pips, higher in 196 of 200 blocks | `docs/simulation/timeseries_seed0.csv`; `docs/simulation/README.md` | P1 demo |
+| Gas: 3,678 / 14,905 warm, 5,678 / 16,905 cold; hookless swap 40,120 | `test/StoikovHookGas.t.sol`; README "Gas" | P1 implementation, P2 conclusion, Q2 |
+| 35 hook tests, five fuzz tests at 1,000–5,000 runs (13,000 in total) | `forge test` (41 tests including the template's 6 `EasyPosm` tests); `forge-config` comments in `test/StoikovHook.t.sol` and `test/StoikovHookFees.t.sol` | P1 implementation, Q4 |
+| Hook address, swap transactions, fees 1,987 / 2,799 and window fees 2,949 / 1,987 and 2,799 / 2,067 | Sepolia receipts, recorded in `docs/deployments/sepolia.md` | P1 wrap-up, P2 evidence 2 |
+| Round-trip attack: 6,302 with the cache, 4,933 without | `docs/simulation/attack_defense.csv` | P1 implementation, P2 evidence 1 |
+| Runtimes: 8.4 s for `ComparisonSimulationTest`, 0.3 s for `AttackDefenseTest` | Timed locally on 2026-09-26, already compiled | P1 demo, P2 evidence 1 |
+| Line numbers | README "Repository Guide" | P1 implementation, P2 evidence 3 |
+
+Still open: the video link, to be added to the README "Demo" section after uploading.
