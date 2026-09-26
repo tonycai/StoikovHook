@@ -36,6 +36,7 @@ Solidity (version pinned in `foundry.toml`), Foundry, Uniswap v4-core / v4-perip
 ## Hard Constraints
 
 - Compiler settings are pinned in `foundry.toml` and must not depend on environment variables. The CREATE2-mined hook address is derived from the bytecode, so any change to the compiler settings invalidates it.
+- `foundry.toml` has one extra profile, `sim`, which runs only the comparison simulation (`FOUNDRY_PROFILE=sim forge test -vv`). It may change test selection and file permissions only; it must never override a compiler setting. After touching `foundry.toml`, check that `forge inspect src/StoikovHook.sol:StoikovHook bytecode` is identical under both profiles.
 - The permissions returned by `getHookPermissions()` must exactly match the flags passed to HookMiner. If you change one, update the other and re-mine the address.
 - Never use `address(this)` in scripts, because forge rejects it when broadcasting. Use a deployer address variable instead.
 - Use private keys only through a Foundry keystore (`--account`). Never put them on the command line, in `.env`, or in any file.

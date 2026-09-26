@@ -4,6 +4,8 @@ out = "out"
 libs = ["lib"]
 ffi = true
 fs_permissions = [{access = "read-write", path = ".forge-snapshots/"}]
+# The comparison simulation runs only under the `sim` profile, so `forge test` (and CI) never writes files.
+no_match_path = "test/simulation/*"
 
 # Compiler settings are pinned on purpose. Hook addresses are mined with CREATE2,
 # so the address depends on the exact init code: changing any of these values
@@ -15,6 +17,15 @@ optimizer = true
 optimizer_runs = 7777
 via_ir = false
 bytecode_hash = "none"
+
+[profile.sim]
+# FOUNDRY_PROFILE=sim forge test -vv
+# Runs only the comparison simulation and lets it write its results to docs/simulation/.
+# Inherits every compiler setting from [profile.default]; never override compiler settings here,
+# because they determine the hook's bytecode and therefore its CREATE2 address.
+match_path = "test/simulation/*"
+no_match_path = "none" # clears the default profile's exclusion of test/simulation/
+fs_permissions = [{access = "read-write", path = ".forge-snapshots/"}, {access = "read-write", path = "./docs/simulation"}]
 
 [lint]
 exclude_lints = ["screaming-snake-case-immutable", "screaming-snake-case-const"]

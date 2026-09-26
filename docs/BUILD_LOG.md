@@ -381,3 +381,28 @@ Current state:
 **Next**: The comparison simulation (M3): trend and mean-reversion price paths, arbitrage and noise flow, StoikovHook vs. a fee-matched static pool (plus 0.05% and 0.30% for reference), at least 20 seeds, results in `docs/simulation/`.
 
 ---
+
+## [2026-09-26 11:06 JST] Comparison simulation
+
+**Goal**: Build the M3 comparison as a reproducible Foundry simulation. A true price path (a trend segment, then a mean-reverting segment) drives an arbitrageur that trades only when profitable after fees, alongside random noise traders. The pools are StoikovHook, a fee-matched static pool (the primary control), and static 0.05% / 0.30%, run over at least 20 seeds and reported honestly.
+
+**Result**:
+- `test/simulation/ComparisonSimulation.t.sol` plus the participant contracts `SimTrader.sol` and `SimLiquidityProvider.sol`. Run with `FOUNDRY_PROFILE=sim forge test -vv`: deterministic, no RPC, about 8 seconds. It writes `docs/simulation/per_seed.csv`, `summary.json` and `timeseries_seed0.csv`, and `docs/simulation/README.md` documents the method and the data.
+- 20 seeds × 400 blocks. LP − HODL in bps of pool value: StoikovHook −7.036 ± 3.771, fee-matched (2,198 ± 87 pips) −7.196 ± 3.833, static 0.05% −10.497, static 0.30% −5.766.
+- Paired against the fee-matched control: LP − HODL **+0.160 ± 0.104 bps, 20/20 seeds positive, t = 6.8**, about 2.2% of the LP's loss versus HODL. The whole gain is fees paid by the arbitrageur (+0.175); noise traders paid exactly the same.
+- The gain is all in the trend segment (arbitrage fees +0.179, t = 8.2); the mean-reversion segment shows −0.004 ± 0.023. The arbitrageur's profit is **not** lower (+0.009 bps, +1.6%); its share of the value it extracts falls from 32.9% to 30.3%.
+- The simulation runs only under a new `sim` profile. The default `forge test` excludes `test/simulation/` and has no write permission there (41 tests, no files written). The hook bytecode is identical under both profiles (sha256 prefix `57ebbe6edd86572a`).
+- README: the tagline and Solution now describe the measured mechanism (more of the arbitrage value goes to LPs; uninformed traders pay the same). G1 is marked met with a small effect, with the numbers. New "Simulation Results" and "Limitations" sections. Core Features and the Repository Guide are updated. CLAUDE.md: a constraint that the `sim` profile never overrides compiler settings. FEEDBACK.md: one new entry.
+
+**Issues**:
+1. The first version was a `forge script`. It failed with "Usage of `address(this)` detected in script contract", because the template's `Deployers.deployToken` mints to `address(this)` (`test/utils/Deployers.sol:39`).
+   Fix: every participant (arbitrageur, noise trader, LP) is its own contract, and the harness mints tokens to them directly. Logged in FEEDBACK.md.
+2. As a script, the run took 8 minutes of CPU time; the identical code under `forge test` took 9.9 seconds, with byte-identical `per_seed.csv`.
+   Root cause: `forge script` records full traces of all ~80,000 swaps.
+   Fix: the simulation is a test that runs under the `sim` profile.
+3. The results contradict part of the original framing: arbitrage profit did not fall. The README no longer implies that LVR shrinks in absolute terms; the Limitations section states it explicitly.
+4. The Solidity summary truncated means toward zero (0.159 vs. 0.1595). It now rounds to nearest, so every output agrees.
+
+**Next**: A τR calibration experiment (time-boxed to 60 minutes): sweep on seeds 1–20, validate on held-out seeds 21–40, and do not commit a parameter change without review.
+
+---

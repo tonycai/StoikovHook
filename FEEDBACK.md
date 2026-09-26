@@ -22,6 +22,9 @@ Developer-experience notes on the Uniswap v4 toolchain, collected while building
   *What we tried:* adding the context remapping `lib/uniswap-hooks/:src/=lib/uniswap-hooks/src/` to `remappings.txt`. It had no effect on the message, so we reverted it. (While trying, we also found that `remappings.txt` rejects comment lines with "invalid remapping format".) We are leaving the message as is.
   *Suggestion:* use package-relative imports inside uniswap-hooks (e.g. `../base/BaseHook.sol`), or have the component that emits this message resolve imports the same way the compiler pipeline does.
 
+- **v4-template: `Deployers` cannot create tokens from a forge script.** `Deployers.deployToken` mints to `address(this)` (`test/utils/Deployers.sol:39`). Forge rejects any use of a script contract's own address ("Usage of `address(this)` detected in script contract"), and `BaseScript` inherits `Deployers` (`script/base/BaseScript.sol:19`), so calling `deployCurrencyPair()` from a script fails at the first mint. We hit this building the comparison simulation and worked around it with dedicated participant contracts that receive the tokens.
+  *Suggestion:* pass the token recipient as a parameter, or mark the token helpers as test-only.
+
 ## Documentation Gaps
 
 - **Dynamic-fee pools start with `lpFee = 0`.** `getInitialLPFee` returns 0 for dynamic-fee pools (`v4-core/src/libraries/LPFeeLibrary.sol:51-54`). The only guidance we found is the source comment recommending `updateDynamicLPFee` in `afterInitialize` (`LPFeeLibrary.sol:48`). For hooks that only use the per-swap override, the stored fee is never read, so if any code path forgot to set `OVERRIDE_FEE_FLAG`, that swap would be charged **0**. Tools that display `slot0.lpFee` also show 0 for these pools.
@@ -37,4 +40,4 @@ Developer-experience notes on the Uniswap v4 toolchain, collected while building
 
 ## Suggestions
 
-- The fixes proposed above, in priority order: (1) broadcast ignore rule, (2) `03_Swap.s.sol` swap receiver, (3) `docs/` ignore rule, (4) dynamic-fee `lpFee = 0` documentation, (5) the false "file not found" diagnostic, (6) CI profile.
+- The fixes proposed above, in priority order: (1) broadcast ignore rule, (2) `03_Swap.s.sol` swap receiver, (3) `docs/` ignore rule, (4) dynamic-fee `lpFee = 0` documentation, (5) `Deployers` token helpers in scripts, (6) the false "file not found" diagnostic, (7) CI profile.
