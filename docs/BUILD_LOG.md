@@ -538,3 +538,17 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Record the demo video and add the link to README "Demo". Then submit.
 
 ---
+
+## [2026-09-26 13:21 JST] FEEDBACK: credit the Uniswap confirmation by name
+
+**Goal**: Credit the Uniswap team member who confirmed the CREATE2 behavior, and settle the wording of the repository description.
+
+**Result**:
+- FEEDBACK.md, CREATE2 entry: "confirmed by the Uniswap team on Discord" now names Dayitva from the Uniswap team, who answered in a public Discord channel, and thanks them.
+- GitHub description: "on average" stays, by Tony's decision. It is the precise claim: a single regular trade can pay more or less depending on its direction; only the average matches the fee-matched pool.
+
+**Issues**: None.
+
+**Next**: Record the demo video and add the link to README "Demo". Then submit.
+
+---
