@@ -235,7 +235,7 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 | Fee-math unit and fuzz tests | `test/StoikovHookFees.t.sol` — skew (L29-L78), volatility (L80-L104), bounds for any input and parameters (L106-L127), window update (L129-L196), parameter validation (L198-L277) | ✅ Done |
 | Gas tests | `test/StoikovHookGas.t.sol` | ✅ Done |
 | Round-trip attack data (with and without the per-block cache) | `test/simulation/AttackDefense.t.sol`; `test/simulation/StoikovHookNoCache.sol` — test-only mutant, never deployed | ✅ Done |
-| Figures | `script/plots/make_figures.py` — every number read from `docs/simulation/` or computed from `defaultFeeParams()`; output in `docs/figures/` | ✅ Done |
+| Figures | `script/plots/make_figures.py` — every number read from `docs/simulation/` or computed from `defaultFeeParams()`; SVGs in `docs/figures/`, 1600-pixel-wide PNGs of the same figures in `docs/figures/png/` | ✅ Done |
 | Comparison simulation | `test/simulation/ComparisonSimulation.t.sol` — price path, arbitrage and noise flow, fee-matched control, metrics; `test/simulation/SimTrader.sol`, `test/simulation/SimLiquidityProvider.sol` — participants; [`docs/simulation/`](docs/simulation/README.md) — results and method | ✅ Done |
 | Design specification | [`specs/01-design.md`](specs/01-design.md) | ✅ Approved |
 

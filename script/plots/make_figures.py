@@ -8,13 +8,14 @@ parameters parsed from src/StoikovHook.sol. Nothing is typed in by hand.
     pip install -r script/plots/requirements.txt
     python3 script/plots/make_figures.py
 
-Writes five SVG files to docs/figures/. Output is deterministic, so rerunning without new data leaves the
-files unchanged.
+Writes five SVG files to docs/figures/, and a 1600-pixel-wide PNG of each to docs/figures/png/ for the
+submission form. Output is deterministic, so rerunning without new data leaves the files unchanged.
 """
 
 from __future__ import annotations
 
 import csv
+import io
 import math
 import re
 from decimal import Decimal
@@ -27,10 +28,14 @@ matplotlib.use("svg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.patches import Patch  # noqa: E402
+from PIL import Image  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SIM = ROOT / "docs" / "simulation"
 OUT = ROOT / "docs" / "figures"
+PNG_OUT = OUT / "png"
+PNG_WIDTH = 1600  # pixels
+PNG_RENDER_DPI = 300  # render larger than PNG_WIDTH, then downsample to exactly PNG_WIDTH
 HOOK_SOURCE = ROOT / "src" / "StoikovHook.sol"
 
 # Okabe-Ito palette (color-blind safe). Blue and orange always carry the price-up / price-down pair or the
@@ -170,11 +175,28 @@ def save(fig, name: str) -> Path:
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / name
     fig.savefig(path, format="svg", bbox_inches="tight", pad_inches=0.25, metadata={"Date": None})
+    save_png(fig, path.with_suffix(".png").name)
     plt.close(fig)
     svg = path.read_text()
     svg = svg.replace("'DejaVu Sans'", FONT_STACK).replace("DejaVu Sans", FONT_STACK)
     svg = svg.replace("sans-serif, sans-serif", "sans-serif")
     path.write_text(svg)
+    return path
+
+
+def save_png(fig, name: str) -> Path:
+    """Renders the same figure to a PNG exactly PNG_WIDTH pixels wide. PNG text is drawn in DejaVu Sans, the
+    font the layout is computed with."""
+    PNG_OUT.mkdir(parents=True, exist_ok=True)
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format="png", dpi=PNG_RENDER_DPI, bbox_inches="tight", pad_inches=0.25,
+                metadata={"Software": None})  # fmt: skip
+    image = Image.open(buffer).convert("RGB")
+    if image.width < PNG_WIDTH:
+        raise ValueError(f"{name}: rendered {image.width} px wide, below {PNG_WIDTH} px; raise PNG_RENDER_DPI")
+    height = round(image.height * PNG_WIDTH / image.width)
+    path = PNG_OUT / name
+    image.resize((PNG_WIDTH, height), Image.Resampling.LANCZOS).save(path, format="PNG", optimize=True)
     return path
 
 
@@ -494,7 +516,11 @@ def main() -> None:
         figure_ref_tau_sensitivity(params),
     ]
     for path in paths:
-        print(f"{path.relative_to(ROOT)}  {path.stat().st_size / 1024:.1f} KB")
+        png = PNG_OUT / path.with_suffix(".png").name
+        with Image.open(png) as image:
+            size = f"{image.width}x{image.height}"
+        print(f"{path.relative_to(ROOT)}  {path.stat().st_size / 1024:.1f} KB   "
+              f"{png.relative_to(ROOT)}  {size}  {png.stat().st_size / 1024:.1f} KB")  # fmt: skip
 
 
 if __name__ == "__main__":
