@@ -17,7 +17,7 @@ For each seed, 400 blocks of 12 seconds:
 | True price | Exists only in the simulation; the hook never reads it. **Trend segment** (blocks 1–200): drift of 5 ticks per block (≈ ±10.5% over the segment; the direction alternates by seed) plus N(0, 10 ticks) noise. **Mean-reversion segment** (blocks 201–400): pulls 5% per block toward the trend's end level, plus N(0, 10 ticks) noise. 10 ticks per 12-second block is roughly 160% annualized volatility, a stressed regime. |
 | Arbitrageur (informed flow) | Trades first in every block, in every pool. It moves the pool price to the edge of the no-arbitrage band around the true price, P = S·(1 − f_up) from below or S / (1 − f_down) from above, using that pool's actual fee for the direction. It therefore only trades when that is profitable after fees. No gas cost. |
 | Noise traders (uninformed flow) | 0–3 trades per block, each with a random direction and a random input size of 0.05–1 token. Identical in every pool. |
-| Pools | Same full-range liquidity (L = 1,000e18, about 1,000 of each token at price 1) and same starting price in all four. **StoikovHook** with `defaultFeeParams()`. **Fee-matched static pool** (the primary control): its fee equals the volume-weighted average fee noise traders actually paid in the StoikovHook pool for the same seed (2,198 ± 87 pips across seeds), so uninformed traders pay the same in both pools. **Static 0.05% and 0.30%** for reference. |
+| Pools | Same full-range liquidity (L = 1,000e18, about 1,000 of each token at price 1) and same starting price in all four. **StoikovHook** with `defaultFeeParams()`. **Fee-matched static pool** (the primary control): its fee equals the volume-weighted average fee noise traders actually paid in the StoikovHook pool for the same seed (2,198 ± 88 pips across seeds), so uninformed traders pay the same average fee in both pools (to within one pip: the control's fee is rounded to a whole pip). **Static 0.05% and 0.30%** for reference. |
 | Accounting | Values are in token1 at the true price. **LP − HODL**: the pool's final reserves minus the initial deposit held unchanged, both valued at the final true price. Exact here, because the only LP is the pool's full-range position and the protocol fee is zero. **Arbitrage profit** (the LVR proxy) and **fees** are valued at the true price of their block. All in basis points of the pool's initial value. |
 
 ## Results
@@ -26,23 +26,25 @@ For each seed, 400 blocks of 12 seconds:
 
 | Pool | LP − HODL | Fee income | Arbitrage profit | Avg fee up / down | Avg fee noise / arbitrage |
 |---|---|---|---|---|---|
-| StoikovHook | −7.036 ± 3.771 | 4.759 ± 0.392 | 0.582 ± 0.084 | 2177 / 2230 | 2197 / 2480 |
-| Fee-matched static | −7.196 ± 3.833 | 4.584 ± 0.355 | 0.573 ± 0.089 | 2198 / 2198 | 2198 / 2198 |
-| Static 0.05% | −10.497 ± 3.843 | 1.273 ± 0.071 | 1.072 ± 0.111 | 500 / 500 | 500 / 500 |
-| Static 0.30% | −5.766 ± 3.829 | 6.017 ± 0.367 | 0.490 ± 0.089 | 3000 / 3000 | 3000 / 3000 |
+| StoikovHook | −7.036 ± 3.771 | 4.759 ± 0.393 | 0.582 ± 0.085 | 2177 / 2230 | 2197 / 2480 |
+| Fee-matched static | −7.196 ± 3.834 | 4.584 ± 0.356 | 0.573 ± 0.090 | 2198 / 2198 | 2198 / 2198 |
+| Static 0.05% | −10.497 ± 3.844 | 1.273 ± 0.071 | 1.072 ± 0.112 | 500 / 500 | 500 / 500 |
+| Static 0.30% | −5.766 ± 3.830 | 6.017 ± 0.367 | 0.490 ± 0.089 | 3000 / 3000 | 3000 / 3000 |
 
 The large cross-seed spread in LP − HODL comes from the price path: each seed's trend creates a different impermanent loss. Comparing pools **within the same seed** removes that spread:
 
 | StoikovHook minus fee-matched, same seed | Mean ± sd | t (n = 20) | Seeds > 0 |
 |---|---|---|---|
-| LP − HODL | **+0.160 ± 0.104** | 6.8 | **20 / 20** |
-| Fees paid by noise traders | 0.000 ± 0.000 | — | — |
-| Fees paid by the arbitrageur | +0.175 ± 0.108 | 7.2 | 20 / 20 |
+| LP − HODL | **+0.160 ± 0.105** | 6.8 | **20 / 20** |
+| Fees paid by noise traders | 0.000 ± 0.001 | — | — |
+| Fees paid by the arbitrageur | +0.175 ± 0.109 | 7.2 | 20 / 20 |
 | … in the trend segment | +0.179 ± 0.097 | 8.2 | 20 / 20 |
-| … in the mean-reversion segment | −0.004 ± 0.023 | −0.8 | — |
+| … in the mean-reversion segment | −0.004 ± 0.024 | −0.8 | — |
 | Arbitrage profit | +0.009 ± 0.011 | 3.8 | — |
 
 Arbitrageur's share of the value its trades extract, i.e. profit / (profit + fees it paid), computed from `per_seed.csv`: StoikovHook **30.3%**, fee-matched 32.9%, static 0.05% 68.4%, static 0.30% 26.6%.
+
+> **Correction, 2026-09-26.** The first published version computed standard deviations with a truncated integer square root. That understated them by up to 0.001 bps and overstated t statistics slightly; for example, the holdout improvement was first reported as ± 0.026, t = 7.2, and is ± 0.027, t = 6.9. The harness now computes both from exact sums. No mean, no per-seed value and no conclusion changed.
 
 ## What this shows, and what it does not
 
@@ -71,33 +73,33 @@ Training, seeds 1–20 (same-seed gain over the fee-matched control, bps of pool
 
 | τR (s) | LP gain | t | Seeds > 0 | Trend arbitrage-fee gain | Reversion arbitrage-fee gain | Arbitrageur's share, StoikovHook / control |
 |---|---|---|---|---|---|---|
-| 60 | 0.001 ± 0.030 | 0.1 | 9 | 0.011 | −0.009 | 33.3% / 32.8% |
+| 60 | 0.001 ± 0.031 | 0.2 | 9 | 0.011 | −0.009 | 33.3% / 32.8% |
 | 150 | 0.029 ± 0.041 | 3.2 | 14 | 0.045 | −0.012 | 32.8% / 32.8% |
 | 300 | 0.077 ± 0.063 | 5.5 | 19 | 0.099 | −0.013 | 32.0% / 32.8% |
-| 600 | 0.142 ± 0.094 | 6.8 | 19 | 0.165 | −0.010 | 30.7% / 32.9% |
-| **900** | 0.166 ± 0.101 | 7.4 | 20 | 0.183 | −0.001 | 30.2% / 33.0% |
-| 1800 | 0.196 ± 0.112 | 7.8 | 20 | 0.192 | +0.020 | 29.5% / 33.1% |
+| 600 | 0.142 ± 0.094 | 6.7 | 19 | 0.165 | −0.010 | 30.7% / 32.9% |
+| **900** | 0.166 ± 0.102 | 7.3 | 20 | 0.183 | −0.001 | 30.2% / 33.0% |
+| 1800 | 0.196 ± 0.113 | 7.8 | 20 | 0.192 | +0.020 | 29.5% / 33.1% |
 | **3600** | 0.206 ± 0.114 | 8.1 | 20 | 0.194 | +0.027 | 29.3% / 33.1% |
 
-Holdout, seeds 21–40: τR = 900 s gains 0.189 ± 0.080 and τR = 3600 s gains 0.231 ± 0.093. The improvement of 3600 s over 900 s is **+0.042 ± 0.026 bps, t = 7.2, better in 19/20 seeds**, so the pre-registered rule says to adopt 3600 s.
+Holdout, seeds 21–40: τR = 900 s gains 0.189 ± 0.081 and τR = 3600 s gains 0.231 ± 0.094. The improvement of 3600 s over 900 s is **+0.042 ± 0.027 bps, t = 6.9, better in 19/20 seeds**, so the pre-registered rule says to adopt 3600 s.
 
 **Shorter memory does not fix the reversion segment; longer memory does.** A short τR makes both segments worse. A long τR lifts the reversion segment from about zero (−0.001) to positive (+0.027 in training, +0.049 in the holdout) without costing anything in the trend segment (0.183 → 0.194).
 
 ### Decision: keep τR = 900 s
 
 - **Pre-registered rule:** adopt the selected τR if its improvement over 900 s on the holdout seeds is positive with paired t ≥ 2.
-- **Result:** τR = 3600 s meets the rule (+0.042 ± 0.026 bps, t = 7.2, better in 19/20 seeds).
+- **Result:** τR = 3600 s meets the rule (+0.042 ± 0.027 bps, t = 6.9, better in 19/20 seeds).
 - **Why the rule was overridden:** the training and holdout seeds come from the same generator, and every run contains exactly one trend away from the starting price. A long memory, which keeps the reference near the starting price, wins by construction. The holdout set protects against overfitting to particular seeds, not against overfitting to the scenario.
 - **Out-of-distribution diagnostic (added after seeing the sweep results, not part of the pre-registered protocol):** `test_refTauReversalDiagnostic`, seeds 21–40, replaces the mean-reverting segment with a trend in the opposite direction.
 
   | τR (s) | LP gain, reversal scenario | Arbitrage-fee gain during the reversal |
   |---|---|---|
-  | 300 | 0.191 ± 0.063 | +0.091 |
-  | **900** | **0.287 ± 0.086** | +0.086 |
-  | 1800 | 0.234 ± 0.095 | +0.016 |
-  | 3600 | 0.170 ± 0.101 | **−0.058** |
+  | 300 | 0.191 ± 0.064 | +0.091 |
+  | **900** | **0.287 ± 0.087** | +0.086 |
+  | 1800 | 0.234 ± 0.096 | +0.016 |
+  | 3600 | 0.170 ± 0.102 | **−0.058** |
 
-  τR = 3600 s is worse than 900 s by −0.117 ± 0.061 bps (t = −8.6, worse in 20/20 seeds), and 900 s is the best of the four values. With a long memory the reference goes stale, and continuation arbitrage in the new direction receives the discount.
+  τR = 3600 s is worse than 900 s by −0.117 ± 0.062 bps (t = −8.5, worse in 20/20 seeds), and 900 s is the best of the four values. With a long memory the reference goes stale, and continuation arbitrage in the new direction receives the discount.
 - **Conclusion:** τR = 900 s stays as the default because it is the most robust value across the two regimes tested. It is not claimed to be optimal.
 - **Follow-up work:** recalibrate on a scenario set with repeated trend reversals and regime switches, or investigate an adaptive τR.
 

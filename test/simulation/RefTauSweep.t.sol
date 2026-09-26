@@ -260,11 +260,19 @@ contract RefTauSweepTest is SimulationBase {
         );
     }
 
-    /// @dev Paired t statistic over the seeds, in thousandths: mean · √n / sd.
+    /// @dev Paired t statistic over the seeds, in thousandths: mean / (sd / √n), computed from exact integer
+    ///      sums as Σx · √(n − 1) / √(n·Σx² − (Σx)²).
     function _tE3(int256[] memory xs) internal pure returns (int256) {
-        (int256 mean, int256 sd,,) = _stats(xs);
-        if (sd == 0) return 0;
-        return mean * int256(FixedPointMathLib.sqrt(xs.length * 1e6)) / sd;
+        int256 n = int256(xs.length);
+        int256 sum;
+        int256 sumSquares;
+        for (uint256 i; i < xs.length; ++i) {
+            sum += xs[i];
+            sumSquares += xs[i] * xs[i];
+        }
+        uint256 spread = uint256(n * sumSquares - sum * sum);
+        if (spread == 0) return 0;
+        return sum * int256(FixedPointMathLib.sqrt(uint256(n - 1) * 1e12)) / int256(FixedPointMathLib.sqrt(spread * 1e6));
     }
 
     /// @dev The arbitrageur's share of the value its trades extract, profit / (profit + fees), in thousandths of a percent.

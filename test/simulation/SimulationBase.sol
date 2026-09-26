@@ -490,24 +490,24 @@ abstract contract SimulationBase is BaseTest {
         }
     }
 
-    /// @dev Mean, sample standard deviation, min and max.
+    /// @dev Mean and sample standard deviation, both rounded to nearest, plus min and max. The standard
+    ///      deviation comes from exact integer sums, (n·Σx² − (Σx)²) / (n·(n − 1)), with the square root
+    ///      taken at three extra digits, so it is not truncated.
     function _stats(int256[] memory xs) internal pure returns (int256 mean, int256 sd, int256 min, int256 max) {
+        int256 n = int256(xs.length);
         int256 sum;
+        int256 sumSquares;
         min = type(int256).max;
         max = type(int256).min;
         for (uint256 i; i < xs.length; ++i) {
             sum += xs[i];
+            sumSquares += xs[i] * xs[i];
             if (xs[i] < min) min = xs[i];
             if (xs[i] > max) max = xs[i];
         }
-        int256 n = int256(xs.length);
-        mean = (sum + (sum >= 0 ? n / 2 : -(n / 2))) / n; // rounded to nearest
-        uint256 squares;
-        for (uint256 i; i < xs.length; ++i) {
-            int256 d = xs[i] - mean;
-            squares += uint256(d * d);
-        }
-        sd = int256(FixedPointMathLib.sqrt(squares / (xs.length - 1)));
+        mean = (sum + (sum >= 0 ? n / 2 : -(n / 2))) / n;
+        uint256 sdE3 = FixedPointMathLib.sqrt(uint256(n * sumSquares - sum * sum) * 1e6 / uint256(n * (n - 1)));
+        sd = int256((sdE3 + 500) / 1000);
     }
 
     function _countPositive(int256[] memory xs) internal pure returns (uint256 count) {

@@ -22,7 +22,7 @@ A professional market maker on a centralized exchange does not quote passively. 
 
 StoikovHook gives a v4 pool both tools. For every block it computes two fees from the pool's own on-chain state: one for swaps that push the price up and one for swaps that push it down. A volatility premium raises both fees when the market is moving. An inventory skew charges more to swaps that push the pool further from its recent equilibrium and less to swaps that bring it back. The fee is applied per swap through v4's dynamic-fee override. There is no oracle, no admin key, and the hook never takes custody of tokens.
 
-In simulation, the effect is to move more of the value that arbitrage extracts to LPs: arbitrageurs pay higher fees, and uninformed traders pay exactly the same. The gain over a comparable static-fee pool is consistent but small; see [Simulation Results](#simulation-results) and [Limitations](#limitations).
+In simulation, the effect is to move more of the value that arbitrage extracts to LPs: arbitrageurs pay higher fees, and uninformed traders pay the same average fee. The gain over a comparable static-fee pool is consistent but small; see [Simulation Results](#simulation-results) and [Limitations](#limitations).
 
 ## Goals
 
@@ -30,7 +30,7 @@ Each goal is a measurable outcome with a named way to check it. Results are publ
 
 | # | Goal | How it is verified | Status |
 |---|---|---|---|
-| G1 | **Better LP outcome for the same cost to traders.** Under identical order flow (same price path, same arbitrage and uninformed trades), LPs in the StoikovHook pool end with a higher terminal value, marked to the reference price, than LPs in a static-fee pool charging the same average fee to uninformed traders. Results against static 0.05% and 0.30% pools are reported alongside. | Deterministic Foundry simulation comparing four pools ([method and data](docs/simulation/README.md)) | ✅ Met, with a small effect: +0.160 ± 0.104 bps against the fee-matched pool, positive in 20/20 seeds, t = 6.8, recovering ≈ 2.2% of the LP's loss versus HODL ([results](#simulation-results)) |
+| G1 | **Better LP outcome for the same cost to traders.** Under identical order flow (same price path, same arbitrage and uninformed trades), LPs in the StoikovHook pool end with a higher terminal value, marked to the reference price, than LPs in a static-fee pool charging the same average fee to uninformed traders. Results against static 0.05% and 0.30% pools are reported alongside. | Deterministic Foundry simulation comparing four pools ([method and data](docs/simulation/README.md)) | ✅ Met, with a small effect: +0.160 ± 0.105 bps against the fee-matched pool, positive in 20/20 seeds, t = 6.8, recovering ≈ 2.2% of the LP's loss versus HODL ([results](#simulation-results)) |
 | G2 | **Direction-aware fees on a live network.** On Sepolia, swaps in opposite directions pay different fees, as recorded in the `fee` field of the PoolManager's own `Swap` event. | Published transaction hashes, verified hook source | 📋 Planned |
 | G3 | **The hook never blocks trading.** Every fee stays within [0.01%, 1%], and no swap reverts inside the hook. | Fuzz tests (≥ 1,000 runs) over random swap sequences and time gaps | ✅ Done (see [Security](#security)) |
 | G4 | **Low gas overhead.** ≤ 5,000 gas for swaps that reuse the block's cached fees, and ≤ 25,000 gas for the first swap of a block. | Foundry gas snapshots, recorded in the build log | ✅ Done, warm measurement (see [Gas](#gas)) |
@@ -172,13 +172,13 @@ A deterministic Foundry simulation: 20 seeds × 400 blocks (a trend segment, the
 | Pool | LP − HODL (bps of pool value) | Arbitrageur's share of the value it extracts |
 |---|---|---|
 | StoikovHook | −7.036 ± 3.771 | 30.3% |
-| Fee-matched static, 0.22% (the control) | −7.196 ± 3.833 | 32.9% |
-| Static 0.05% | −10.497 ± 3.843 | 68.4% |
-| Static 0.30% | −5.766 ± 3.829 | 26.6% |
+| Fee-matched static, 0.22% (the control) | −7.196 ± 3.834 | 32.9% |
+| Static 0.05% | −10.497 ± 3.844 | 68.4% |
+| Static 0.30% | −5.766 ± 3.830 | 26.6% |
 
-- **Against the fee-matched control, same seed:** LP − HODL is **+0.160 ± 0.104 bps**, positive in **20 of 20** seeds, t = 6.8. That recovers about 2.2% of the LP's loss versus HODL. The effect is consistent but small.
-- **Mechanism:** StoikovHook moves more of the value that arbitrage extracts to LPs. The arbitrageur pays +0.175 bps more in fees; uninformed traders pay exactly the same (+0.000).
-- **Where the gain comes from:** the trend segment (+0.179 bps of arbitrage fees, positive in 20 of 20 seeds). The mean-reversion segment shows no gain (−0.004 ± 0.023).
+- **Against the fee-matched control, same seed:** LP − HODL is **+0.160 ± 0.105 bps**, positive in **20 of 20** seeds, t = 6.8. That recovers about 2.2% of the LP's loss versus HODL. The effect is consistent but small.
+- **Mechanism:** StoikovHook moves more of the value that arbitrage extracts to LPs. The arbitrageur pays +0.175 bps more in fees; uninformed traders pay the same (difference 0.000 ± 0.001 bps).
+- **Where the gain comes from:** the trend segment (+0.179 bps of arbitrage fees, positive in 20 of 20 seeds). The mean-reversion segment shows no gain (−0.004 ± 0.024).
 
 ## Limitations
 

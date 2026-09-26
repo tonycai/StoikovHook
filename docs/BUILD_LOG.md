@@ -427,3 +427,19 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Recalibrate on a scenario set with repeated reversals and regime switches, or investigate an adaptive τR. Immediate next task: the SVG figures.
 
 ---
+
+## [2026-09-26 11:33 JST] Fix: exact standard deviations and t statistics in the simulation
+
+**Goal**: Correct a precision bug found while cross-checking the figure data against the published statistics.
+
+**Result**:
+- `SimulationBase._stats` took an integer square root of an integer variance at 0.001-bps resolution, which truncated standard deviations. `RefTauSweepTest._tE3` inherited the error. Both now use exact sums, (n·Σx² − (Σx)²), with the root taken at three extra digits and rounded.
+- Regenerated `summary.json`, `ref_tau_sweep_summary.csv` and `ref_tau_reversal_diagnostic_summary.csv`. Every per-seed file and every mean is unchanged.
+- Corrected values: holdout improvement of 3600 s over 900 s **+0.042 ± 0.027, t = 6.9** (reported as ± 0.026, t = 7.2); reversal diagnostic **−0.117 ± 0.062, t = −8.5** (reported as ± 0.061, t = −8.6); main LP gain +0.160 **± 0.105** (reported as ± 0.104; t = 6.8 was already exact). Several table SDs moved by 0.001. Noise-trader fees differ by 0.000 ± 0.001 bps, not ± 0.000, because the control's fee is rounded to a whole pip, so "exactly the same" became "the same average fee".
+- README and `docs/simulation/README.md` updated; the simulation README carries a dated correction note.
+
+**Issues**: The bug inflated t statistics by up to about 4%. The decision rule (t ≥ 2) and every conclusion are unaffected. The earlier build-log entries keep the old values as a historical record; this entry supersedes them.
+
+**Next**: The SVG figures.
+
+---
