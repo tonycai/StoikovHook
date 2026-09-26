@@ -651,3 +651,40 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Tony reviews the attribution changes. Then record the demo video and add the link to README "Demo".
 
 ---
+
+## [2026-09-26 13:45 JST] Logo and cover image
+
+**Goal**: Script-generated images for the submission form, with the scripts in `script/plots/`:
+- confirm the five 1600-pixel figure PNGs exist;
+- an original logo (SVG source, 512×512 PNG, 64×64 preview) in which two lines fork from one point, in the figures' direction colors, legible at 64×64;
+- a 1280×720 cover with the name, the tagline "Market-maker fees for Uniswap v4", the line "Live on Sepolia · LPs ahead in 20/20 seeds · No oracle", and a simplified fee curve.
+
+**Result**:
+- The figure PNGs already existed. All five are 1600 px wide, from `aa2f124`.
+- New `script/plots/make_brand.py`, using the same pinned requirements as the figures. Output in `docs/brand/`, byte-identical across two runs:
+  - `logo.svg`: 0.4 KB.
+  - `logo-512.png`: 512×512, transparent outside the rounded tile.
+  - `logo-64.png`: 64×64, downsampled from the 512 PNG with Lanczos.
+  - `cover-1280x720.png`: 1280×720.
+- Logo:
+  - A dark stem and node (the one fee both sides pay at the reference) fork into a blue stroke (price-up fee) and an orange stroke (price-down fee), on a light rounded tile.
+  - The geometry is defined once and written both as the SVG and as the matplotlib PNG. A WebKit render of the SVG matches the PNG.
+  - The strokes are 56/512 of the width, about 7 px at 64×64, and the mark fits inside a circle of radius 215 around the center, so a round avatar crop does not cut it.
+  - It contains no text and no Uniswap or ETHGlobal elements.
+- Cover:
+  - Left: the logo, "StoikovHook" at 84 px, the tagline at 36 px, and the key points at 30 px. At 640×360 these become 42, 18 and 15 px and remain readable.
+  - Right: the price-up and price-down fees for q̂ from 0 to 1 at 240%/yr, computed with the formula mirror in `make_figures.py`, which runs its self-check against the Solidity test values first. The stem left of the fork is illustrative.
+  - No axes and no numbers on the curve. The one number on the cover, 20/20 seeds, matches `README.md:187`.
+- `docs/SUBMISSION.md` Images section: logo, cover and gallery order. README Repository Guide: a row for the brand script.
+
+**Issues**:
+1. First render: the logo's fork node drew under the stem in the PNG, because matplotlib draws patches below lines by default, while it sits on top in the SVG. Fixed with `zorder=3`.
+2. First render of the cover:
+   - The strokes' round caps were clipped flat at the axes edge. Fixed with `clip_on=False`.
+   - A light fill under each stroke ended in a hard vertical edge. Removed.
+   - "pays more" sat 25 px from the right edge. The curve moved left.
+3. Open point for Tony: "LPs ahead in 20/20 seeds" does not say ahead of what. LPs are behind HODL in every pool; they are ahead of the fee-matched static pool. Kept as requested; a possible alternative is noted in the report.
+
+**Next**: Tony checks the logo at 512 and 64 and the cover. Then record the demo video and add the link to README "Demo".
+
+---
