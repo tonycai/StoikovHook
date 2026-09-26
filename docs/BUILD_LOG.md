@@ -810,3 +810,17 @@ Fix: split the reporting into small functions; compiler settings unchanged.
 **Next**: Live judging at 09:30 JST on 2026-09-27.
 
 ---
+
+## [2026-09-26 19:27 JST] LICENSE: add the author's copyright line
+
+**Goal**: Name the project's author in `LICENSE`. Keep the template author's line and the MIT license text unchanged.
+
+**Result**:
+- `LICENSE`: added "Copyright (c) 2026 Tony Cai" directly below "Copyright (c) 2023 saucepoint". The diff is one added line; the license text after the copyright lines is byte-identical.
+- This settles the open point from the 17:56 entry. The code stays frozen: nothing under `src/`, `script/` or `test/` changed.
+
+**Issues**: None.
+
+**Next**: Live judging at 09:30 JST on 2026-09-27.
+
+---
